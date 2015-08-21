@@ -2,7 +2,7 @@ vcli: A REPL for Vertica
 ========================
 
 A Vertica client that does auto-completion and syntax highlighting, forked from
-Amjith Ramanujam's `pgcli <http://pgcli.com>`_.
+`pgcli <http://pgcli.com>`_.
 
 
 Quick Start
@@ -35,6 +35,6 @@ Examples:
 Thanks
 ------
 
-Thanks to Amjith Ramanujam's `pgcli <http://pgcli.com>`_. Most of the hard
+Thanks to `pgcli <http://pgcli.com>`_. Most of the hard
 work, especially the auto-completion part, were already done wonderfully by
-Amjith.
+the pgcli core team.
