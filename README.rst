@@ -38,3 +38,6 @@ Thanks
 Thanks to pgcli_. Most of the hard work, especially the auto-completion part,
 were already done well by the pgcli core team. vcli wouldn't be possible if it
 weren't for them.
+
+
+.. _pgcli: http://pgcli.com
