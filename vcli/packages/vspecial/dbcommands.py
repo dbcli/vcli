@@ -8,350 +8,279 @@ TableInfo = namedtuple("TableInfo", ['checks', 'relkind', 'hasindex',
 
 log = logging.getLogger(__name__)
 
-@special_command('\\l', '\\l', 'List databases.', arg_type=RAW_QUERY)
-def list_databases(cur, **_):
-    query = 'SELECT datname FROM pg_database;'
-    cur.execute(query)
-    if cur.description:
-        headers = [x[0] for x in cur.description]
-        return [(None, cur, headers, cur.statusmessage)]
-    else:
-        return [(None, None, None, cur.statusmessage)]
 
-@special_command('\\du', '\\du[+] [pattern]', 'List roles.')
-def list_roles(cur, pattern, verbose):
-    """
-    Returns (title, rows, headers, status)
-    """
-    sql = '''SELECT r.rolname, r.rolsuper, r.rolinherit,
-    r.rolcreaterole, r.rolcreatedb, r.rolcanlogin,
-    r.rolconnlimit, r.rolvaliduntil,
-    ARRAY(SELECT b.rolname
-    FROM pg_catalog.pg_auth_members m
-    JOIN pg_catalog.pg_roles b ON (m.roleid = b.oid)
-    WHERE m.member = r.oid) as memberof''' + (''',
-    pg_catalog.shobj_description(r.oid, 'pg_authid') AS description'''
-    if verbose else '') + """, r.rolreplication
-    FROM pg_catalog.pg_roles r """
+def generate_object_sql(pattern, columns, table_name, schema_column=None,
+                        object_column=None, order_by=None):
+    columns = ['%s AS "%s"' % (name, alias) for name, alias in columns]
+    column_sql = ','.join(columns)
+    sql = 'SELECT %s FROM %s WHERE 1' % (column_sql, table_name)
+    schema_pattern, object_pattern = sql_name_pattern(pattern)
+    if schema_pattern and schema_column:
+        sql += " AND %s ~ '%s' " % (schema_column, schema_pattern)
+    if object_pattern and object_column:
+        sql += " AND %s ~ '%s' " % (object_column, object_pattern)
 
-    params = []
-    if pattern:
-        _, schema = sql_name_pattern(pattern)
-        sql += 'WHERE r.rolname ~ %s'
-        params.append(schema)
-    sql = cur.mogrify(sql + " ORDER BY 1", params)
+    if order_by:
+        sql += ' ORDER BY %s' % ','.join([str(k) for k in order_by])
+    return sql
 
-    log.debug(sql)
-    cur.execute(sql)
-    if cur.description:
-        headers = [x[0] for x in cur.description]
-        return [(None, cur, headers, cur.statusmessage)]
 
-@special_command('\\dn', '\\dn[+] [pattern]', 'List schemas.')
-def list_schemas(cur, pattern, verbose):
-    """
-    Returns (title, rows, headers, status)
-    """
-
-    sql = '''SELECT n.nspname AS "Name",
-    pg_catalog.pg_get_userbyid(n.nspowner) AS "Owner"''' + (''',
-    pg_catalog.array_to_string(n.nspacl, E'\\n') AS "Access privileges",
-    pg_catalog.obj_description(n.oid, 'pg_namespace') AS "Description"''' if verbose else '') + """
-    FROM pg_catalog.pg_namespace n WHERE n.nspname """
-
-    params = []
-    if pattern:
-        _, schema = sql_name_pattern(pattern)
-        sql += '~ %s'
-        params.append(schema)
-    else:
-        sql += "!~ '^pg_' AND n.nspname <> 'information_schema'"
-    sql = cur.mogrify(sql + " ORDER BY 1", params)
-
-    log.debug(sql)
-    cur.execute(sql)
-    if cur.description:
-        headers = [x[0] for x in cur.description]
-        return [(None, cur, headers, cur.statusmessage)]
-
-def list_objects(cur, pattern, verbose, relkinds):
-    """
-        Returns (title, rows, header, status)
-
-        This method is used by list_tables, list_views, and list_indexes
-
-        relkinds is a list of strings to filter pg_class.relkind
-
-    """
-    schema_pattern, table_pattern = sql_name_pattern(pattern)
-
-    if verbose:
-        verbose_columns = '''
-            ,pg_catalog.pg_size_pretty(pg_catalog.pg_table_size(c.oid)) as "Size",
-            pg_catalog.obj_description(c.oid, 'pg_class') as "Description" '''
-    else:
-        verbose_columns = ''
-
-    sql = '''SELECT n.nspname as "Schema",
-                    c.relname as "Name",
-                    CASE c.relkind
-                      WHEN 'r' THEN 'table' WHEN 'v' THEN 'view'
-                      WHEN 'm' THEN 'materialized view' WHEN 'i' THEN 'index'
-                      WHEN 'S' THEN 'sequence' WHEN 's' THEN 'special'
-                      WHEN 'f' THEN 'foreign table' END
-                    as "Type",
-                    pg_catalog.pg_get_userbyid(c.relowner) as "Owner"
-          ''' + verbose_columns + '''
-            FROM    pg_catalog.pg_class c
-                    LEFT JOIN pg_catalog.pg_namespace n
-                      ON n.oid = c.relnamespace
-            WHERE   c.relkind = ANY(%s) '''
-
-    params = [relkinds]
-
-    if schema_pattern:
-        sql += ' AND n.nspname ~ %s'
-        params.append(schema_pattern)
-    else:
-        sql += '''
-            AND n.nspname <> 'pg_catalog'
-            AND n.nspname <> 'information_schema'
-            AND n.nspname !~ '^pg_toast'
-            AND pg_catalog.pg_table_is_visible(c.oid) '''
-
-    if table_pattern:
-        sql += ' AND c.relname ~ %s'
-        params.append(table_pattern)
-
-    sql = cur.mogrify(sql + ' ORDER BY 1, 2', params)
-
+def list_objects(cur, pattern, verbose, columns, table_name,
+                 schema_column=None, object_column=None, order_by=None,
+                 title=None):
+    # TODO: Add verbose mode
+    sql = generate_object_sql(pattern, columns, table_name, schema_column,
+                              object_column, order_by)
     log.debug(sql)
     cur.execute(sql)
 
-    if cur.description:
-        headers = [x[0] for x in cur.description]
-        return [(None, cur, headers, cur.statusmessage)]
+    headers = [x[0] for x in cur.description]
+    return [(title, cur, headers, None)]
 
 
-@special_command('\\dt', '\\dt[+] [pattern]', 'List tables.')
-def list_tables(cur, pattern, verbose):
-    return list_objects(cur, pattern, verbose, ['r', ''])
-
-
-@special_command('\\dv', '\\dv[+] [pattern]', 'List views.')
-def list_views(cur, pattern, verbose):
-    return list_objects(cur, pattern, verbose, ['v', 's', ''])
-
-@special_command('\\ds', '\\ds[+] [pattern]', 'List sequences.')
-def list_sequences(cur, pattern, verbose):
-    return list_objects(cur, pattern, verbose, ['S', 's', ''])
-
-@special_command('\\di', '\\di[+] [pattern]', 'List indexes.')
-def list_indexes(cur, pattern, verbose):
-    return list_objects(cur, pattern, verbose, ['i', 's', ''])
-
-@special_command('\\df', '\\df[+] [pattern]', 'List functions.')
-def list_functions(cur, pattern, verbose):
-
-    if verbose:
-        verbose_columns = '''
-            ,CASE
-                 WHEN p.provolatile = 'i' THEN 'immutable'
-                 WHEN p.provolatile = 's' THEN 'stable'
-                 WHEN p.provolatile = 'v' THEN 'volatile'
-            END as "Volatility",
-            pg_catalog.pg_get_userbyid(p.proowner) as "Owner",
-          l.lanname as "Language",
-          p.prosrc as "Source code",
-          pg_catalog.obj_description(p.oid, 'pg_proc') as "Description" '''
-
-        verbose_table = ''' LEFT JOIN pg_catalog.pg_language l
-                                ON l.oid = p.prolang'''
-    else:
-        verbose_columns = verbose_table = ''
-
-    sql = '''
-        SELECT  n.nspname as "Schema",
-                p.proname as "Name",
-                pg_catalog.pg_get_function_result(p.oid)
-                  as "Result data type",
-                pg_catalog.pg_get_function_arguments(p.oid)
-                  as "Argument data types",
-                 CASE
-                    WHEN p.proisagg THEN 'agg'
-                    WHEN p.proiswindow THEN 'window'
-                    WHEN p.prorettype = 'pg_catalog.trigger'::pg_catalog.regtype
-                        THEN 'trigger'
-                    ELSE 'normal'
-                END as "Type" ''' + verbose_columns + '''
-        FROM    pg_catalog.pg_proc p
-                LEFT JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
-                        ''' + verbose_table + '''
-        WHERE  '''
-
-    schema_pattern, func_pattern = sql_name_pattern(pattern)
-    params = []
-
-    if schema_pattern:
-        sql += ' n.nspname ~ %s '
-        params.append(schema_pattern)
-    else:
-        sql += ' pg_catalog.pg_function_is_visible(p.oid) '
-
-    if func_pattern:
-        sql += ' AND p.proname ~ %s '
-        params.append(func_pattern)
-
-    if not (schema_pattern or func_pattern):
-        sql += ''' AND n.nspname <> 'pg_catalog'
-                   AND n.nspname <> 'information_schema' '''
-
-    sql = cur.mogrify(sql + ' ORDER BY 1, 2, 4', params)
-
-    log.debug(sql)
-    cur.execute(sql)
-
-    if cur.description:
-        headers = [x[0] for x in cur.description]
-        return [(None, cur, headers, cur.statusmessage)]
-
-@special_command('\\dT', '\\dT[S+] [pattern]', 'List data types')
-def list_datatypes(cur, pattern, verbose):
-    assert True
-    sql = '''SELECT n.nspname as "Schema",
-                    pg_catalog.format_type(t.oid, NULL) AS "Name", '''
-
-    if verbose:
-        sql += r''' t.typname AS "Internal name",
-                    CASE
-                        WHEN t.typrelid != 0
-                            THEN CAST('tuple' AS pg_catalog.text)
-                        WHEN t.typlen < 0
-                            THEN CAST('var' AS pg_catalog.text)
-                        ELSE CAST(t.typlen AS pg_catalog.text)
-                    END AS "Size",
-                    pg_catalog.array_to_string(
-                        ARRAY(
-                              SELECT e.enumlabel
-                              FROM pg_catalog.pg_enum e
-                              WHERE e.enumtypid = t.oid
-                              ORDER BY e.enumsortorder
-                          ), E'\n') AS "Elements",
-                    pg_catalog.array_to_string(t.typacl, E'\n')
-                        AS "Access privileges",
-                    pg_catalog.obj_description(t.oid, 'pg_type')
-                        AS "Description"'''
-    else:
-        sql += '''  pg_catalog.obj_description(t.oid, 'pg_type')
-                        as "Description" '''
-
-    sql += '''  FROM    pg_catalog.pg_type t
-                        LEFT JOIN pg_catalog.pg_namespace n
-                          ON n.oid = t.typnamespace
-                WHERE   (t.typrelid = 0 OR
-                          ( SELECT c.relkind = 'c'
-                            FROM pg_catalog.pg_class c
-                            WHERE c.oid = t.typrelid))
-                        AND NOT EXISTS(
-                            SELECT 1
-                            FROM pg_catalog.pg_type el
-                            WHERE el.oid = t.typelem
-                                  AND el.typarray = t.oid) '''
-
-    schema_pattern, type_pattern = sql_name_pattern(pattern)
-    params = []
-
-    if schema_pattern:
-        sql += ' AND n.nspname ~ %s '
-        params.append(schema_pattern)
-    else:
-        sql += ' AND pg_catalog.pg_type_is_visible(t.oid) '
-
-    if type_pattern:
-        sql += ''' AND (t.typname ~ %s
-                        OR pg_catalog.format_type(t.oid, NULL) ~ %s) '''
-        params.extend(2 * [type_pattern])
-
-    if not (schema_pattern or type_pattern):
-        sql += ''' AND n.nspname <> 'pg_catalog'
-                   AND n.nspname <> 'information_schema' '''
-
-    sql = cur.mogrify(sql + ' ORDER BY 1, 2', params)
-    log.debug(sql)
-    cur.execute(sql)
-    if cur.description:
-        headers = [x[0] for x in cur.description]
-        return [(None, cur, headers, cur.statusmessage)]
-
-@special_command('describe', 'DESCRIBE [pattern]', '', hidden=True, case_sensitive=False)
-@special_command('\\d', '\\d [pattern]', 'List or describe tables, views and sequences.')
+@special_command('\\d', '\\d [PATTERN]', 'List or describe tables')
 def describe_table_details(cur, pattern, verbose):
     """
     Returns (title, rows, headers, status)
     """
-
     # This is a simple \d command. No table name to follow.
     if not pattern:
-        sql = """SELECT n.nspname as "Schema", c.relname as "Name",
-                    CASE c.relkind WHEN 'r' THEN 'table'
-                        WHEN 'v' THEN 'view'
-                        WHEN 'm' THEN 'materialized view'
-                        WHEN 'i' THEN 'index'
-                        WHEN 'S' THEN 'sequence'
-                        WHEN 's' THEN 'special'
-                        WHEN 'f' THEN 'foreign table'
-                    END as "Type",
-                    pg_catalog.pg_get_userbyid(c.relowner) as "Owner"
-                FROM pg_catalog.pg_class c
-                LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-                WHERE c.relkind IN ('r','v','m','S','f','')
-                AND n.nspname <> 'pg_catalog'
-                AND n.nspname <> 'information_schema'
-                AND n.nspname !~ '^pg_toast'
-                AND pg_catalog.pg_table_is_visible(c.oid)
-                ORDER BY 1,2 """
+        sql = """SELECT table_schema AS Schema,
+                        table_name AS Name,
+                        'table' AS Kind, owner_name AS Owner
+                FROM v_catalog.tables
+                ORDER BY 1, 2"""
 
         log.debug(sql)
         cur.execute(sql)
         if cur.description:
             headers = [x[0] for x in cur.description]
-            return [(None, cur, headers, cur.statusmessage)]
+            return [(None, cur, headers, None)]
 
     # This is a \d <tablename> command. A royal pain in the ass.
     schema, relname = sql_name_pattern(pattern)
     where = []
-    params = []
-
-    if not pattern:
-        where.append('pg_catalog.pg_table_is_visible(c.oid)')
-
     if schema:
-        where.append('n.nspname ~ %s')
-        params.append(schema)
-
+        where.append("c.table_schema ~ '%s'" % schema)
     if relname:
-        where.append('c.relname ~ %s')
-        params.append(relname)
+        where.append("c.table_name ~ '%s'" % relname)
 
-    sql = """SELECT c.oid, n.nspname, c.relname
-             FROM pg_catalog.pg_class c
-             LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
-             """ + ('WHERE ' + ' AND '.join(where) if where else '') + """
-             ORDER BY 2,3"""
-    sql = cur.mogrify(sql, params)
+    sql = """SELECT c.table_schema AS Schema,
+                    c.table_name AS Table,
+                    c.column_name AS Column,
+                    c.data_type AS Type,
+                    c.data_type_length AS Size,
+                    c.column_default AS Default,
+                    NOT c.is_nullable AS 'Not Null',
+                    p.constraint_id IS NOT NULL AS 'Primary Key'
+            FROM v_catalog.columns c
+            LEFT JOIN v_catalog.primary_keys p
+            USING (table_schema, table_name, column_name)"""
+    if where:
+        sql += 'WHERE ' + ' AND '.join(where)
+    sql += ' ORDER BY 1, 2, c.column_id'
 
     # Execute the sql, get the results and call describe_one_table_details on each table.
 
     log.debug(sql)
     cur.execute(sql)
-    if not (cur.rowcount > 0):
-        return [(None, None, None, 'Did not find any relation named %s.' % pattern)]
 
-    results = []
-    for oid, nspname, relname in cur.fetchall():
-        results.append(describe_one_table_details(cur, nspname, relname, oid, verbose))
+    headers = [x[0] for x in cur.description]
+    return [(None, cur, headers, None)]
 
-    return results
+
+@special_command('\\df', '\\df [PATTERN]', 'List functions')
+def list_functions(cur, pattern, verbose):
+    columns = [
+        ('schema_name', 'Schema'),
+        ('function_name', 'Name'),
+        ('function_return_type', 'Return Type'),
+        ('function_argument_type', 'Argument Type'),
+        ('procedure_type', 'Type')
+    ]
+    order_by = ['schema_name', 'function_name', 'function_argument_type']
+    return list_objects(
+        cur, pattern, verbose, columns, 'v_catalog.user_functions',
+        schema_column='schema_name', object_column='function_name',
+        order_by=order_by)
+
+
+@special_command('\\dj', '\\dj [PATTERN]', 'List projections')
+def list_projections(cur, pattern, verbose):
+    columns = [
+        ('projection_schema', 'Schema'),
+        ('projection_name', 'Name'),
+        ('owner_name', 'Owner'),
+        ('node_name', 'Node')
+    ]
+    order_by = ['projection_schema', 'projection_name']
+    return list_objects(
+        cur, pattern, verbose, columns, 'v_catalog.projections',
+        schema_column='projection_schema', object_column='projection_name',
+        order_by=order_by)
+
+
+@special_command('\\dn', '\\dn [PATTERN]', 'List schemas')
+def list_schemas(cur, pattern, verbose):
+    columns = [
+        ('schema_name', 'Name'),
+        ('schema_owner', 'Owner')
+    ]
+    return list_objects(
+        cur, pattern, verbose, columns, 'v_catalog.schemata',
+        schema_column='schema_name', order_by=['schema_name'])
+
+
+def list_privileges(cur, pattern, verbose):
+    columns = [
+        ('grantee', 'Grantee'),
+        ('grantor', 'Grantor'),
+        ('privileges_description', 'Privileges'),
+        ('object_schema', 'Schema'),
+        ('object_name', 'Name')
+    ]
+    order_by = ['object_schema', 'object_name', 'grantee', 'grantor']
+    return list_objects(
+        cur, pattern, verbose, columns, 'v_catalog.grants',
+        schema_column='object_schema', object_column='object_name',
+        order_by=order_by)
+
+
+list_privileges_dp = special_command(
+    '\\dp', '\\dp [PATTERN]', 'List access privileges')(list_privileges)
+
+
+@special_command('\\ds', '\\ds [PATTERN]', 'List sequences')
+def list_sequences(cur, pattern, verbose):
+    columns = [
+        ('sequence_schema', 'Schema'),
+        ('sequence_name', 'Name'),
+        ('current_value', 'CurrentValue'),
+        ('increment_by', 'IncrementBy'),
+        ('minimum', 'Minimum'),
+        ('maximum', 'Maximum'),
+        ('allow_cycle', 'AllowCycle')
+    ]
+    order_by = ['sequence_schema', 'sequence_name']
+    return list_objects(
+        cur, pattern, verbose, columns, 'v_catalog.sequences',
+        schema_column='sequence_schema', object_column='sequence_name',
+        order_by=order_by)
+
+
+@special_command('\\dS', '\\dS [PATTERN]', 'List system tables')
+def list_system_tables(cur, pattern, verbose):
+    columns = [
+        ('table_schema', 'Schema'),
+        ('table_name', 'Name'),
+        ("'system'", 'Kind'),
+        ('table_description', 'Description')
+    ]
+    order_by = ['table_schema', 'table_name']
+    return list_objects(
+        cur, pattern, verbose, columns, 'v_catalog.system_tables',
+        schema_column='table_schema', object_column='table_name',
+        order_by=order_by)
+
+
+@special_command('\\dt', '\\dt [PATTERN]', 'List tables')
+def list_tables(cur, pattern, verbose):
+    columns = [
+        ('table_schema', 'Schema'),
+        ('table_name', 'Name'),
+        ("'table'", 'Kind'),
+        ('owner_name', 'Owner')
+    ]
+    order_by = ['table_schema', 'table_name']
+    return list_objects(
+        cur, pattern, verbose, columns, 'v_catalog.tables',
+        schema_column='table_schema', object_column='table_name',
+        order_by=order_by)
+
+
+@special_command('\\dtv', '\\dtv [PATTERN]', 'List tables and views')
+def list_tables_and_views(cur, pattern, verbose):
+    columns = [
+        ('table_schema', 'Schema'),
+        ('table_name', 'Name'),
+        ("'table'", 'Kind'),
+        ('owner_name', 'Owner')
+    ]
+    schema_column = 'table_schema'
+    object_column = 'table_name'
+    tables_sql = generate_object_sql(pattern, columns, 'v_catalog.tables',
+                                     schema_column, object_column)
+    columns[2] = ("'view'", 'Kind')
+    views_sql = generate_object_sql(pattern, columns, 'v_catalog.views',
+                                    schema_column, object_column)
+    sql = """
+        SELECT "Schema", Name, Kind, Owner
+        FROM (%s UNION %s) t
+        ORDER BY 1, 2, 3
+    """ % (tables_sql, views_sql)
+    log.debug(sql)
+    cur.execute(sql)
+
+    if cur.description:
+        headers = [x[0] for x in cur.description]
+        return [(None, cur, headers, None)]
+    return None
+
+
+@special_command('\\dT', '\\dT [PATTERN]', 'List data types')
+def list_datatypes(cur, pattern, verbose):
+    columns = [
+        ('type_name', 'Type Name')
+    ]
+    order_by = ['type_name']
+    return list_objects(
+        cur, pattern, verbose, columns, 'v_catalog.types',
+        schema_column='type_name', order_by=order_by)
+
+
+@special_command('\\du', '\\du [PATTERN]', 'List users')
+def list_users(cur, pattern, verbose):
+    columns = [
+        ('user_name', 'User Name'),
+        ('is_super_user', 'Is Superuser')
+    ]
+    order_by = ['user_name']
+    return list_objects(
+        cur, pattern, verbose, columns, 'v_catalog.users',
+        schema_column='user_name', order_by=order_by)
+
+
+@special_command('\\dv', '\\dv [PATTERN]', 'List views')
+def list_views(cur, pattern, verbose):
+    columns = [
+        ('table_schema', 'Schema'),
+        ('table_name', 'Name'),
+        ("'view'", 'Kind'),
+        ('owner_name', 'Owner')
+    ]
+    order_by = ['table_schema', 'table_name']
+    return list_objects(
+        cur, pattern, verbose, columns, 'v_catalog.views',
+        schema_column='table_schema', object_column='table_name',
+        order_by=order_by)
+
+
+@special_command('\\l', '\\l', 'List databases')
+def list_databases(cur, pattern, verbose):
+    columns = [
+        ('database_name', 'Name'),
+        ('owner_name', 'Owner')
+    ]
+    order_by = ['database_name']
+    return list_objects(
+        cur, pattern, verbose, columns, 'v_catalog.databases',
+        schema_column='table_schema', order_by=order_by)
+
+
+list_privileges_z = special_command(
+    '\\z', '\\z [PATTERN]',
+    'List access privileges (same as \\dp)')(list_privileges)
+
 
 def describe_one_table_details(cur, schema_name, relation_name, oid, verbose):
     if verbose:
@@ -360,7 +289,7 @@ def describe_one_table_details(cur, schema_name, relation_name, oid, verbose):
     else:
         suffix = "''"
 
-    sql ="""SELECT c.relchecks, c.relkind, c.relhasindex,
+    sql = """SELECT c.relchecks, c.relkind, c.relhasindex,
                 c.relhasrules, c.relhastriggers, c.relhasoids,
                 %s,
                 c.reltablespace,
@@ -935,6 +864,7 @@ def describe_one_table_details(cur, schema_name, relation_name, oid, verbose):
         status.append("Options: %s\n" % tableinfo.reloptions)
 
     return (None, cells, headers, "".join(status))
+
 
 def sql_name_pattern(pattern):
     """

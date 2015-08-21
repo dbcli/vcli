@@ -6,8 +6,8 @@ from prompt_toolkit.document import Document
 
 @pytest.fixture
 def completer():
-    import pgcli.pgcompleter as pgcompleter
-    return pgcompleter.PGCompleter()
+    import vcli.vcompleter as vcompleter
+    return vcompleter.VCompleter()
 
 
 def test_ranking_ignores_identifier_quotes(completer):

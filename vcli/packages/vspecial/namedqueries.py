@@ -55,4 +55,4 @@ Examples:
         return '%s: Deleted' % name
 
 from ...config import load_config
-namedqueries = NamedQueries(load_config('~/.pgclirc'))
+namedqueries = NamedQueries(load_config('~/.vclirc'))

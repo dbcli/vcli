@@ -1,5 +1,5 @@
 import pytest
-from pgcli.packages.sqlcompletion import suggest_type
+from vcli.packages.sqlcompletion import suggest_type
 from test_sqlcompletion import sorted_dicts
 
 def test_slash_suggests_special():

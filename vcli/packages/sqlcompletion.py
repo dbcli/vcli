@@ -3,7 +3,7 @@ import sys
 import sqlparse
 from sqlparse.sql import Comparison, Identifier, Where
 from .parseutils import last_word, extract_tables, find_prev_keyword
-from .pgspecial import parse_special_command
+from .vspecial import parse_special_command
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] == 3

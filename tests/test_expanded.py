@@ -1,4 +1,4 @@
-from pgcli.packages.expanded import expanded_table
+from vcli.packages.expanded import expanded_table
 import pytest
 
 def test_expanded_table_renders():

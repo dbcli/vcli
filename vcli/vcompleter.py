@@ -5,7 +5,7 @@ import itertools
 from prompt_toolkit.completion import Completer, Completion
 from .packages.sqlcompletion import suggest_type
 from .packages.parseutils import last_word
-from .packages.pgspecial.namedqueries import namedqueries
+from .packages.vspecial.namedqueries import namedqueries
 
 try:
     from collections import Counter
@@ -15,39 +15,48 @@ except ImportError:
 
 _logger = logging.getLogger(__name__)
 
-class PGCompleter(Completer):
-    keywords = ['ACCESS', 'ADD', 'ALL', 'ALTER TABLE', 'AND', 'ANY', 'AS',
-            'ASC', 'AUDIT', 'BETWEEN', 'BY', 'CASE', 'CHAR', 'CHECK',
-            'CLUSTER', 'COLUMN', 'COMMENT', 'COMPRESS', 'CONNECT', 'COPY',
-            'CREATE', 'CURRENT', 'DATABASE', 'DATE', 'DECIMAL', 'DEFAULT',
-            'DELETE FROM', 'DELIMITER', 'DESC', 'DESCRIBE', 'DISTINCT', 'DROP',
-            'ELSE', 'ENCODING', 'ESCAPE', 'EXCLUSIVE', 'EXISTS', 'EXTENSION',
-            'FILE', 'FLOAT', 'FOR', 'FORMAT', 'FORCE_QUOTE', 'FORCE_NOT_NULL',
-            'FREEZE', 'FROM', 'FULL', 'FUNCTION', 'GRANT', 'GROUP BY',
-            'HAVING', 'HEADER', 'IDENTIFIED', 'IMMEDIATE', 'IN', 'INCREMENT',
-            'INDEX', 'INITIAL', 'INSERT INTO', 'INTEGER', 'INTERSECT', 'INTO',
-            'IS', 'JOIN', 'LEFT', 'LEVEL', 'LIKE', 'LIMIT', 'LOCK', 'LONG',
-            'MAXEXTENTS', 'MINUS', 'MLSLABEL', 'MODE', 'MODIFY', 'NOAUDIT',
-            'NOCOMPRESS', 'NOT', 'NOWAIT', 'NULL', 'NUMBER', 'OIDS', 'OF',
-            'OFFLINE', 'ON', 'ONLINE', 'OPTION', 'OR', 'ORDER BY', 'OUTER',
-            'OWNER', 'PCTFREE', 'PRIMARY', 'PRIOR', 'PRIVILEGES', 'QUOTE',
-            'RAW', 'RENAME', 'RESOURCE', 'REVOKE', 'RIGHT', 'ROW', 'ROWID',
-            'ROWNUM', 'ROWS', 'SELECT', 'SESSION', 'SET', 'SHARE', 'SIZE',
-            'SMALLINT', 'START', 'SUCCESSFUL', 'SYNONYM', 'SYSDATE', 'TABLE',
-            'TEMPLATE', 'THEN', 'TO', 'TRIGGER', 'TRUNCATE', 'UID', 'UNION',
-            'UNIQUE', 'UPDATE', 'USE', 'USER', 'USING', 'VALIDATE', 'VALUES',
-            'VARCHAR', 'VARCHAR2', 'VIEW', 'WHEN', 'WHENEVER', 'WHERE', 'WITH']
 
-    functions = ['AVG', 'COUNT', 'FIRST', 'FORMAT', 'LAST', 'LCASE', 'LEN',
-                 'MAX', 'MIN', 'MID', 'NOW', 'ROUND', 'SUM', 'TOP', 'UCASE']
+class VCompleter(Completer):
 
-    datatypes = ['BIGINT', 'BOOLEAN', 'CHAR', 'DATE', 'DOUBLE PRECISION', 'INT',
-                 'INTEGER', 'NUMERIC', 'REAL', 'TEXT', 'VARCHAR']
+    keywords = [
+        'ACCESS', 'ADD', 'ALL', 'ALTER TABLE', 'AND', 'ANY', 'AS',
+        'ASC', 'AUDIT', 'BETWEEN', 'BY', 'CASCADE', 'CASE', 'CHAR', 'CHECK',
+        'CLUSTER', 'COLUMN', 'COMMENT', 'COMPRESS', 'CONNECT', 'COPY',
+        'CREATE', 'CURRENT', 'DATABASE', 'DATE', 'DECIMAL', 'DEFAULT',
+        'DELETE FROM', 'DELIMITER', 'DESC', 'DESCRIBE', 'DISTINCT', 'DROP',
+        'ELSE', 'ENCODING', 'ESCAPE', 'EXCLUSIVE', 'EXISTS', 'EXTENSION',
+        'FILE', 'FLOAT', 'FOR', 'FORMAT', 'FORCE_QUOTE', 'FORCE_NOT_NULL',
+        'FREEZE', 'FROM', 'FULL', 'FUNCTION', 'GRANT', 'GROUP BY',
+        'HAVING', 'HEADER', 'IDENTIFIED', 'IMMEDIATE', 'IN', 'INCREMENT',
+        'INDEX', 'INITIAL', 'INSERT INTO', 'INTEGER', 'INTERSECT', 'INTO',
+        'IS', 'JOIN', 'LEFT', 'LEVEL', 'LIKE', 'LIMIT', 'LOCK', 'LONG',
+        'MAXEXTENTS', 'MINUS', 'MLSLABEL', 'MODE', 'MODIFY', 'NOAUDIT',
+        'NOCOMPRESS', 'NOT', 'NOWAIT', 'NULL', 'NUMBER', 'OIDS', 'OF',
+        'OFFLINE', 'ON', 'ONLINE', 'OPTION', 'OR', 'ORDER BY', 'OUTER',
+        'OWNER', 'PCTFREE', 'PRIMARY', 'PRIOR', 'PRIVILEGES', 'QUOTE',
+        'RAW', 'RENAME', 'RESOURCE', 'REVOKE', 'RIGHT', 'ROW', 'ROWID',
+        'ROWNUM', 'ROWS', 'SCHEMA', 'SELECT', 'SESSION', 'SET', 'SHARE',
+        'SIZE', 'SMALLINT', 'START', 'SUCCESSFUL', 'SYNONYM', 'SYSDATE',
+        'TABLE', 'TEMPLATE', 'THEN', 'TO', 'TRIGGER', 'TRUNCATE', 'UID',
+        'UNION', 'UNIQUE', 'UPDATE', 'USE', 'USER', 'USING', 'VALIDATE',
+        'VALUES', 'VARCHAR', 'VARCHAR2', 'VIEW', 'WHEN', 'WHENEVER', 'WHERE',
+        'WITH'
+    ]
 
-    def __init__(self, smart_completion=True, pgspecial=None):
-        super(PGCompleter, self).__init__()
+    functions = [
+        'AVG', 'COUNT', 'FIRST', 'FORMAT', 'LAST', 'LCASE', 'LEN',
+        'MAX', 'MIN', 'MID', 'NOW', 'ROUND', 'SUM', 'TOP', 'UCASE'
+    ]
+
+    datatypes = [
+        'BIGINT', 'BOOLEAN', 'CHAR', 'DATE', 'DOUBLE PRECISION', 'INT',
+        'INTEGER', 'NUMERIC', 'REAL', 'TEXT', 'VARCHAR'
+    ]
+
+    def __init__(self, smart_completion=True, vspecial=None):
+        super(VCompleter, self).__init__()
         self.smart_completion = smart_completion
-        self.pgspecial = pgspecial
+        self.vspecial = vspecial
 
         self.reserved_words = set()
         for x in self.keywords:
@@ -63,8 +72,8 @@ class PGCompleter(Completer):
 
     def escape_name(self, name):
         if name and ((not self.name_pattern.match(name))
-                or (name.upper() in self.reserved_words)
-                or (name.upper() in self.functions)):
+                     or (name.upper() in self.reserved_words)
+                     or (name.upper() in self.functions)):
             name = '"%s"' % name
 
         return name
@@ -77,7 +86,9 @@ class PGCompleter(Completer):
         return name
 
     def escaped_names(self, names):
-        return [self.escape_name(name) for name in names]
+        if names:
+            return [self.escape_name(name) for name in names]
+        return []
 
     def extend_database_names(self, databases):
         databases = self.escaped_names(databases)
@@ -134,8 +145,12 @@ class PGCompleter(Completer):
         column_data = [self.escaped_names(d) for d in column_data]
         metadata = self.dbmetadata[kind]
         for schema, relname, column in column_data:
-            metadata[schema][relname].append(column)
-            self.all_completions.add(column)
+            try:
+                metadata[schema][relname].append(column)
+            except KeyError:
+                pass
+            else:
+                self.all_completions.add(column)
 
     def extend_functions(self, func_data):
 
@@ -158,10 +173,11 @@ class PGCompleter(Completer):
         # storing any metadata beyond typename, so just store None
         meta = self.dbmetadata['datatypes']
 
-        for t in type_data:
-            schema, type_name = self.escaped_names(t)
-            meta[schema][type_name] = None
-            self.all_completions.add(type_name)
+        if type_data:
+            for t in type_data:
+                schema, type_name = self.escaped_names(t)
+                meta[schema][type_name] = None
+                self.all_completions.add(type_name)
 
     def set_search_path(self, search_path):
         self.search_path = self.escaped_names(search_path)
@@ -233,7 +249,6 @@ class PGCompleter(Completer):
         return [Completion(item, -len(text), display_meta=meta)
                 for sort_key, item, meta in sorted(completions)]
 
-
     def get_completions(self, document, complete_event, smart_completion=None):
         word_before_cursor = document.get_word_before_cursor(WORD=True)
         if smart_completion is None:
@@ -262,8 +277,8 @@ class PGCompleter(Completer):
                     # should suggest only columns that appear in more than one
                     # table
                     scoped_cols = [col for (col, count)
-                                         in Counter(scoped_cols).items()
-                                           if count > 1 and col != '*']
+                                   in Counter(scoped_cols).items()
+                                   if count > 1 and col != '*']
 
                 cols = self.find_matches(word_before_cursor, scoped_cols,
                                          meta='column')
@@ -294,7 +309,7 @@ class PGCompleter(Completer):
                 # names starting with pg_, which are mostly temporary schemas
                 if not word_before_cursor.startswith('pg_'):
                     schema_names = [s for s in schema_names
-                                      if not s.startswith('pg_')]
+                                    if not s.startswith('pg_')]
 
                 schema_names = self.find_matches(word_before_cursor,
                                                  schema_names,
@@ -346,10 +361,10 @@ class PGCompleter(Completer):
                 completions.extend(keywords)
 
             elif suggestion['type'] == 'special':
-                if not self.pgspecial:
+                if not self.vspecial:
                     continue
 
-                commands = self.pgspecial.commands
+                commands = self.vspecial.commands
                 cmd_names = commands.keys()
                 desc = [commands[cmd].description for cmd in cmd_names]
 
@@ -450,6 +465,6 @@ class PGCompleter(Completer):
         else:
             schemas = self.search_path
             objects = [obj for schema in schemas
-                           for obj in metadata[schema].keys()]
+                       for obj in metadata[schema].keys()]
 
         return objects

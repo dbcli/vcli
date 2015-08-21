@@ -9,8 +9,11 @@ NO_QUERY = 0
 PARSED_QUERY = 1
 RAW_QUERY = 2
 
-SpecialCommand = namedtuple('SpecialCommand',
-        ['handler', 'syntax', 'description', 'arg_type', 'hidden', 'case_sensitive'])
+SpecialCommand = namedtuple('SpecialCommand', [
+    'handler', 'syntax', 'description', 'arg_type', 'hidden',
+    'case_sensitive'
+])
+
 
 @export
 class CommandNotFound(Exception):
@@ -18,7 +21,7 @@ class CommandNotFound(Exception):
 
 
 @export
-class PGSpecial(object):
+class VSpecial(object):
 
     # Default static commands that don't rely on PGSpecial state are registered
     # via the special_command decorator and stored in default_commands
@@ -32,14 +35,16 @@ class PGSpecial(object):
         self.timing_enabled = False
         self.expanded_output = False
 
-        self.register(self.show_help, '\\?', '\\?', 'Show Help.',
+        self.register(self.show_help, '\\?', '\\?', 'Show help',
+                      arg_type=NO_QUERY)
+        self.register(self.show_help, '\\h', '\\h', 'Show help',
                       arg_type=NO_QUERY)
 
         self.register(self.toggle_expanded_output, '\\x', '\\x',
-                      'Toggle expanded output.', arg_type=NO_QUERY)
+                      'Toggle expanded output', arg_type=NO_QUERY)
 
         self.register(self.toggle_timing, '\\timing', '\\timing',
-                      'Toggle timing of commands.', arg_type=NO_QUERY)
+                      'Toggle timing of commands', arg_type=NO_QUERY)
 
     def register(self, *args, **kwargs):
         register_special_command(*args, command_dict=self.commands, **kwargs)
@@ -67,11 +72,13 @@ class PGSpecial(object):
 
     def show_help(self):
         headers = ['Command', 'Description']
-        result = []
-
-        for _, value in sorted(self.commands.items()):
+        result = [
+            ('\\q', 'Quit vcli')
+        ]
+        for _, value in self.commands.items():
             if not value.hidden:
                 result.append((value.syntax, value.description))
+        result = sorted(result)
         return [(None, result, headers, None)]
 
     def toggle_expanded_output(self):
@@ -97,34 +104,36 @@ def parse_special_command(sql):
 
 
 def special_command(command, syntax, description, arg_type=PARSED_QUERY,
-        hidden=False, case_sensitive=True, aliases=()):
+                    hidden=False, case_sensitive=True, aliases=()):
     """A decorator used internally for static special commands"""
 
     def wrapper(wrapped):
         register_special_command(wrapped, command, syntax, description,
-                arg_type, hidden, case_sensitive, aliases,
-                command_dict=PGSpecial.default_commands)
+                                 arg_type, hidden, case_sensitive, aliases,
+                                 command_dict=VSpecial.default_commands)
         return wrapped
     return wrapper
 
 
 def register_special_command(handler, command, syntax, description,
-        arg_type=PARSED_QUERY, hidden=False, case_sensitive=True, aliases=(),
-        command_dict=None):
+                             arg_type=PARSED_QUERY, hidden=False,
+                             case_sensitive=True, aliases=(),
+                             command_dict=None):
 
     cmd = command.lower() if not case_sensitive else command
-    command_dict[cmd] = SpecialCommand(handler, syntax, description, arg_type,
-                                   hidden, case_sensitive)
+    command_dict[cmd] = SpecialCommand(
+        handler, syntax, description, arg_type, hidden, case_sensitive)
     for alias in aliases:
         cmd = alias.lower() if not case_sensitive else alias
-        command_dict[cmd] = SpecialCommand(handler, syntax, description, arg_type,
-                                       case_sensitive=case_sensitive,
-                                       hidden=True)
+        command_dict[cmd] = SpecialCommand(
+            handler, syntax, description, arg_type,
+            case_sensitive=case_sensitive, hidden=True)
 
 
-@special_command('\\e', '\\e [file]', 'Edit the query with external editor.', arg_type=NO_QUERY)
+@special_command('\\e', '\\e [FILE]', 'Edit the query with external editor', arg_type=NO_QUERY)
 def doc_only():
     raise RuntimeError
+
 
 @special_command('\\ef', '\\ef [funcname [line]]', 'Edit the contents of the query buffer.', arg_type=NO_QUERY, hidden=True)
 @special_command('\\sf', '\\sf[+] FUNCNAME', 'Show a function\'s definition.', arg_type=NO_QUERY, hidden=True)

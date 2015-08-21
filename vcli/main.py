@@ -1,37 +1,40 @@
 #!/usr/bin/env python
-from __future__ import unicode_literals
 from __future__ import print_function
+from __future__ import unicode_literals
 
+import logging
 import os
 import sys
 import traceback
-import logging
-from time import time
 
 import click
 import sqlparse
+
+from time import time
+
 from prompt_toolkit import CommandLineInterface, Application, AbortAction
-from prompt_toolkit.enums import DEFAULT_BUFFER
-from prompt_toolkit.shortcuts import create_default_layout, create_eventloop
 from prompt_toolkit.document import Document
+from prompt_toolkit.enums import DEFAULT_BUFFER
 from prompt_toolkit.filters import Always, HasFocus, IsDone
-from prompt_toolkit.layout.processors import (ConditionalProcessor,
-                                        HighlightMatchingBracketProcessor)
 from prompt_toolkit.history import FileHistory
+from prompt_toolkit.shortcuts import create_default_layout, create_eventloop
+from prompt_toolkit.layout.processors import (
+    ConditionalProcessor, HighlightMatchingBracketProcessor)
 from pygments.lexers.sql import PostgresLexer
 from pygments.token import Token
+from vertica_python import errors
 
 from .packages.tabulate import tabulate
 from .packages.expanded import expanded_table
-from .packages.pgspecial.main import (PGSpecial, NO_QUERY)
-import pgcli.packages.pgspecial as special
-from .pgcompleter import PGCompleter
-from .pgtoolbar import create_toolbar_tokens_func
-from .pgstyle import style_factory
-from .pgexecute import PGExecute
-from .pgbuffer import PGBuffer
+from .packages.vspecial.main import (VSpecial, NO_QUERY)
+import vcli.packages.vspecial as special
+from .vcompleter import VCompleter
+from .vtoolbar import create_toolbar_tokens_func
+from .vstyle import style_factory
+from .vexecute import VExecute
+from .vbuffer import VBuffer
 from .config import write_default_config, load_config
-from .key_bindings import pgcli_bindings
+from .key_bindings import vcli_bindings
 from .encodingutils import utf8tounicode
 from .__init__ import __version__
 
@@ -41,7 +44,6 @@ try:
 except ImportError:
     from urllib.parse import urlparse
 from getpass import getuser
-from psycopg2 import OperationalError
 
 from collections import namedtuple
 
@@ -49,28 +51,28 @@ from collections import namedtuple
 Query = namedtuple('Query', ['query', 'successful', 'mutating'])
 
 
-class PGCli(object):
+class VCli(object):
 
     def __init__(self, force_passwd_prompt=False, never_passwd_prompt=False,
-                 pgexecute=None, pgclirc_file=None):
+                 vexecute=None, vclirc_file=None):
 
         self.force_passwd_prompt = force_passwd_prompt
         self.never_passwd_prompt = never_passwd_prompt
-        self.pgexecute = pgexecute
+        self.vexecute = vexecute
 
-        from pgcli import __file__ as package_root
+        from vcli import __file__ as package_root
         package_root = os.path.dirname(package_root)
 
-        default_config = os.path.join(package_root, 'pgclirc')
-        write_default_config(default_config, pgclirc_file)
+        default_config = os.path.join(package_root, 'vclirc')
+        write_default_config(default_config, vclirc_file)
 
-        self.pgspecial = PGSpecial()
+        self.vspecial = VSpecial()
 
         # Load config.
-        c = self.config = load_config(pgclirc_file, default_config)
+        c = self.config = load_config(vclirc_file, default_config)
         self.multi_line = c['main'].as_bool('multi_line')
         self.vi_mode = c['main'].as_bool('vi')
-        self.pgspecial.timing_enabled = c['main'].as_bool('timing')
+        self.vspecial.timing_enabled = c['main'].as_bool('timing')
         self.table_format = c['main']['table_format']
         self.syntax_style = c['main']['syntax_style']
         self.cli_style = c['colors']
@@ -83,30 +85,30 @@ class PGCli(object):
 
         # Initialize completer
         smart_completion = c['main'].as_bool('smart_completion')
-        completer = PGCompleter(smart_completion, pgspecial=self.pgspecial)
+        completer = VCompleter(smart_completion, vspecial=self.vspecial)
         self.completer = completer
         self.register_special_commands()
 
     def register_special_commands(self):
-
-        self.pgspecial.register(self.change_db, '\\c',
-                              '\\c[onnect] database_name',
-                              'Change to a new database.',
-                              aliases=('use', '\\connect', 'USE'))
-        self.pgspecial.register(self.refresh_completions, '\\#', '\\#',
-                              'Refresh auto-completions.', arg_type=NO_QUERY)
-        self.pgspecial.register(self.refresh_completions, '\\refresh', '\\refresh',
-                              'Refresh auto-completions.', arg_type=NO_QUERY)
+        self.vspecial.register(self.change_db, '\\c',
+                               '\\c[onnect] [DBNAME]',
+                               'Connect to a new database',
+                               aliases=('use', '\\connect', 'USE'))
+        self.vspecial.register(self.refresh_completions, '\\#', '\\#',
+                               'Refresh auto-completions', arg_type=NO_QUERY)
+        self.vspecial.register(self.refresh_completions, '\\refresh',
+                               '\\refresh', 'Refresh auto-completions',
+                               arg_type=NO_QUERY)
 
     def change_db(self, pattern, **_):
         if pattern:
             db = pattern[1:-1] if pattern[0] == pattern[-1] == '"' else pattern
-            self.pgexecute.connect(database=db)
+            self.vexecute.connect(database=db)
         else:
-            self.pgexecute.connect()
+            self.vexecute.connect()
 
         yield (None, None, None, 'You are now connected to database "%s" as '
-                'user "%s"' % (self.pgexecute.dbname, self.pgexecute.user))
+               'user "%s"' % (self.vexecute.dbname, self.vexecute.user))
 
     def initialize_logging(self):
 
@@ -128,11 +130,11 @@ class PGCli(object):
 
         handler.setFormatter(formatter)
 
-        root_logger = logging.getLogger('pgcli')
+        root_logger = logging.getLogger('vcli')
         root_logger.addHandler(handler)
         root_logger.setLevel(level_map[log_level.upper()])
 
-        root_logger.debug('Initializing pgcli logging.')
+        root_logger.debug('Initializing vcli logging.')
         root_logger.debug('Log file %r.', log_file)
 
     def connect_uri(self, uri):
@@ -153,7 +155,7 @@ class PGCli(object):
         # If password prompt is not forced but no password is provided, try
         # getting it from environment variable.
         if not self.force_passwd_prompt and not passwd:
-            passwd = os.environ.get('PGPASSWORD', '')
+            passwd = os.environ.get('VERTICA_PASSWORD', '')
 
         # Prompt for a password immediately if requested via the -W flag. This
         # avoids wasting time trying to connect to the database and catching a
@@ -174,13 +176,13 @@ class PGCli(object):
         # a password (no -w flag), prompt for a passwd and try again.
         try:
             try:
-                pgexecute = PGExecute(database, user, passwd, host, port)
-            except OperationalError as e:
+                vexecute = VExecute(database, user, passwd, host, port)
+            except errors.DatabaseError as e:
                 if ('no password supplied' in utf8tounicode(e.args[0]) and
                         auto_passwd_prompt):
                     passwd = click.prompt('Password', hide_input=True,
                                           show_default=False, type=str)
-                    pgexecute = PGExecute(database, user, passwd, host, port)
+                    vexecute = VExecute(database, user, passwd, host, port)
                 else:
                     raise e
 
@@ -188,9 +190,10 @@ class PGCli(object):
             self.logger.debug('Database connection failed: %r.', e)
             self.logger.error("traceback: %r", traceback.format_exc())
             click.secho(str(e), err=True, fg='red')
+            raise
             exit(1)
 
-        self.pgexecute = pgexecute
+        self.vexecute = vexecute
 
     def handle_editor_command(self, cli, document):
         """
@@ -208,17 +211,18 @@ class PGCli(object):
         while special.editor_command(document.text):
             filename = special.get_filename(document.text)
             sql, message = special.open_external_editor(filename,
-                                                          sql=document.text)
+                                                        sql=document.text)
             if message:
                 # Something went wrong. Raise an exception and bail.
                 raise RuntimeError(message)
-            cli.current_buffer.document = Document(sql, cursor_position=len(sql))
+            cli.current_buffer.document = Document(
+                sql, cursor_position=len(sql))
             document = cli.run(False)
             continue
         return document
 
     def run_cli(self):
-        pgexecute = self.pgexecute
+        vexecute = self.vexecute
         logger = self.logger
         original_less_opts = self.adjust_less_opts()
 
@@ -228,41 +232,43 @@ class PGCli(object):
         def set_vi_mode(value):
             self.vi_mode = value
 
-        key_binding_manager = pgcli_bindings(
+        key_binding_manager = vcli_bindings(
             get_vi_mode_enabled=lambda: self.vi_mode,
             set_vi_mode_enabled=set_vi_mode)
 
         print('Version:', __version__)
-        print('Chat: https://gitter.im/dbcli/pgcli')
-        print('Mail: https://groups.google.com/forum/#!forum/pgcli')
-        print('Home: http://pgcli.com')
+        # print('Chat: https://gitter.im/dbcli/pgcli')
+        # print('Mail: https://groups.google.com/forum/#!forum/pgcli')
+        # print('Home: http://pgcli.com')
 
         def prompt_tokens(cli):
-            return [(Token.Prompt,  '%s> ' % pgexecute.dbname)]
+            return [(Token.Prompt, '%s=> ' % vexecute.dbname)]
 
         get_toolbar_tokens = create_toolbar_tokens_func(lambda: self.vi_mode)
-        layout = create_default_layout(lexer=PostgresLexer,
-                                       reserve_space_for_menu=True,
-                                       get_prompt_tokens=prompt_tokens,
-                                       get_bottom_toolbar_tokens=get_toolbar_tokens,
-                                       display_completions_in_columns=self.wider_completion_menu,
-                                       multiline=True,
-                                       extra_input_processors=[
-                                           # Highlight matching brackets while editing.
-                                           ConditionalProcessor(
-                                               processor=HighlightMatchingBracketProcessor(chars='[](){}'),
-                                               filter=HasFocus(DEFAULT_BUFFER) & ~IsDone()),
-                                       ])
+        input_processors = [
+            # Highlight matching brackets while editing.
+            ConditionalProcessor(
+                processor=HighlightMatchingBracketProcessor(chars='[](){}'),
+                filter=HasFocus(DEFAULT_BUFFER) & ~IsDone())
+        ]
+        layout = create_default_layout(
+            lexer=PostgresLexer,
+            reserve_space_for_menu=True,
+            get_prompt_tokens=prompt_tokens,
+            get_bottom_toolbar_tokens=get_toolbar_tokens,
+            display_completions_in_columns=self.wider_completion_menu,
+            multiline=True,
+            extra_input_processors=input_processors)
         history_file = self.config['main']['history_file']
-        buf = PGBuffer(always_multiline=self.multi_line, completer=completer,
-                history=FileHistory(os.path.expanduser(history_file)),
-                complete_while_typing=Always())
+        buf = VBuffer(always_multiline=self.multi_line, completer=completer,
+                      history=FileHistory(os.path.expanduser(history_file)),
+                      complete_while_typing=Always())
 
-        application = Application(style=style_factory(self.syntax_style, self.cli_style),
-                                  layout=layout, buffer=buf,
-                                  key_bindings_registry=key_binding_manager.registry,
-                                  on_exit=AbortAction.RAISE_EXCEPTION,
-                                  ignore_case=True)
+        style = style_factory(self.syntax_style, self.cli_style)
+        application = Application(
+            style=style, layout=layout, buffer=buf,
+            key_bindings_registry=key_binding_manager.registry,
+            on_exit=AbortAction.RAISE_EXCEPTION, ignore_case=True)
         cli = CommandLineInterface(application=application,
                                    eventloop=create_eventloop())
 
@@ -270,9 +276,9 @@ class PGCli(object):
             while True:
                 document = cli.run()
 
-                # The reason we check here instead of inside the pgexecute is
+                # The reason we check here instead of inside the vexecute is
                 # because we want to raise the Exit exception which will be
-                # caught by the try/except block that wraps the pgexecute.run()
+                # caught by the try/except block that wraps the vexecute.run()
                 # statement.
                 if quit_command(document.text):
                     raise EOFError
@@ -294,12 +300,12 @@ class PGCli(object):
                     logger.debug('sql: %r', document.text)
                     successful = False
                     # Initialized to [] because res might never get initialized
-                    # if an exception occurs in pgexecute.run(). Which causes
+                    # if an exception occurs in vexecute.run(). Which causes
                     # finally clause to fail.
                     res = []
                     start = time()
                     # Run the query.
-                    res = pgexecute.run(document.text, self.pgspecial)
+                    res = vexecute.run(document.text, self.vspecial)
                     duration = time() - start
                     successful = True
                     output = []
@@ -313,36 +319,43 @@ class PGCli(object):
                         if (is_select(status) and
                                 cur and cur.rowcount > threshold):
                             click.secho('The result set has more than %s rows.'
-                                    % threshold, fg='red')
+                                        % threshold, fg='red')
                             if not click.confirm('Do you want to continue?'):
                                 click.secho("Aborted!", err=True, fg='red')
                                 break
 
                         formatted = format_output(title, cur, headers, status,
                                                   self.table_format,
-                                                  self.pgspecial.expanded_output)
+                                                  self.vspecial.expanded_output)
                         output.extend(formatted)
+                        if hasattr(cur, 'rowcount'):
+                            if cur.rowcount == 1:
+                                output.append('(1 row)')
+                            elif headers:
+                                output.append('(%d rows)' % cur.rowcount)
+                            if document.text.startswith('\\') and cur.rowcount == 0:
+                                output = ['No matching relations found.']
                         end = time()
                         total += end - start
                         mutating = mutating or is_mutating(status)
 
                 except KeyboardInterrupt:
                     # Restart connection to the database
-                    pgexecute.connect()
+                    vexecute.connect()
                     logger.debug("cancelled query, sql: %r", document.text)
                     click.secho("cancelled query", err=True, fg='red')
                 except NotImplementedError:
                     click.secho('Not Yet Implemented.', fg="yellow")
-                except OperationalError as e:
+                except errors.ConnectionError as e:
                     reconnect = True
-                    if ('server closed the connection' in utf8tounicode(e.args[0])):
+                    if ('Connection is closed' in utf8tounicode(e.args[0])):
                         reconnect = click.prompt('Connection reset. Reconnect (Y/n)',
                                 show_default=False, type=bool, default=True)
                         if reconnect:
                             try:
-                                pgexecute.connect()
+                                vexecute.connect()
                                 click.secho('Reconnected!\nTry the command again.', fg='green')
-                            except OperationalError as e:
+                            except errors.DatabaseError as e:
                                 click.secho(str(e), err=True, fg='red')
                     else:
                         logger.error("sql: %r, error: %r", document.text, e)
@@ -353,13 +366,13 @@ class PGCli(object):
                     logger.error("traceback: %r", traceback.format_exc())
                     click.secho(str(e), err=True, fg='red')
                 else:
-                    try:
-                        click.echo_via_pager('\n'.join(output))
-                    except KeyboardInterrupt:
-                        pass
-                    if self.pgspecial.timing_enabled:
-                        print('Command Time: %0.03fs' % duration)
-                        print('Format Time: %0.03fs' % total)
+                    if output:
+                        try:
+                            click.echo_via_pager('\n'.join(output))
+                        except KeyboardInterrupt:
+                            pass
+                    if self.vspecial.timing_enabled:
+                        print('Time: command: %0.03fs, total: %0.03fs' % (duration, total))
 
                 # Refresh the table names and column names if necessary.
                 if need_completion_refresh(document.text):
@@ -368,7 +381,7 @@ class PGCli(object):
                 # Refresh search_path to set default schema.
                 if need_search_path_refresh(document.text):
                     logger.debug('Refreshing search path')
-                    completer.set_search_path(pgexecute.search_path())
+                    completer.set_search_path(vexecute.search_path())
                     logger.debug('Search path: %r', completer.search_path)
 
                 query = Query(document.text, successful, mutating)
@@ -388,31 +401,33 @@ class PGCli(object):
         return less_opts
 
     def refresh_completions(self):
+        print('Refreshing completions')
+
         completer = self.completer
         completer.reset_completions()
 
-        pgexecute = self.pgexecute
+        vexecute = self.vexecute
 
         # schemata
-        completer.set_search_path(pgexecute.search_path())
-        completer.extend_schemata(pgexecute.schemata())
+        completer.set_search_path(vexecute.search_path())
+        completer.extend_schemata(vexecute.schemata())
 
         # tables
-        completer.extend_relations(pgexecute.tables(), kind='tables')
-        completer.extend_columns(pgexecute.table_columns(), kind='tables')
+        completer.extend_relations(vexecute.tables(), kind='tables')
+        completer.extend_columns(vexecute.table_columns(), kind='tables')
 
         # views
-        completer.extend_relations(pgexecute.views(), kind='views')
-        completer.extend_columns(pgexecute.view_columns(), kind='views')
+        completer.extend_relations(vexecute.views(), kind='views')
+        completer.extend_columns(vexecute.view_columns(), kind='views')
 
         # functions
-        completer.extend_functions(pgexecute.functions())
+        completer.extend_functions(vexecute.functions())
 
         # types
-        completer.extend_datatypes(pgexecute.datatypes())
+        completer.extend_datatypes(vexecute.datatypes())
 
         # databases
-        completer.extend_database_names(pgexecute.databases())
+        completer.extend_database_names(vexecute.databases())
 
         return [(None, None, None, 'Auto-completions refreshed.')]
 
@@ -423,63 +438,73 @@ class PGCli(object):
 
 @click.command()
 # Default host is '' so psycopg2 can default to either localhost or unix socket
-@click.option('-h', '--host', default='', envvar='PGHOST',
-        help='Host address of the postgres database.')
-@click.option('-p', '--port', default=5432, help='Port number at which the '
-        'postgres instance is listening.', envvar='PGPORT')
-@click.option('-U', '--user', envvar='PGUSER', help='User name to '
-        'connect to the postgres database.')
+@click.option('-h', '--host', default='', envvar='VERTICA_HOST',
+              help='Host address of the postgres database.')
+@click.option('-p', '--port', default=5433, help='Port number at which the '
+              'Vertica instance is listening.', envvar='VERTICA_PORT')
+@click.option('-U', '--user', envvar='VERTICA_USER', help='User name to '
+              'connect to the Vertica database.')
 @click.option('-W', '--password', 'prompt_passwd', is_flag=True, default=False,
-        help='Force password prompt.')
+              help='Force password prompt.')
 @click.option('-w', '--no-password', 'never_prompt', is_flag=True,
-        default=False, help='Never prompt for password.')
-@click.option('-v', '--version', is_flag=True, help='Version of pgcli.')
-@click.option('-d', '--dbname', default='', envvar='PGDATABASE',
-        help='database name to connect to.')
-@click.option('--pgclirc', default='~/.pgclirc', envvar='PGCLIRC',
-        help='Location of .pgclirc file.')
-@click.argument('database', default=lambda: None, envvar='PGDATABASE', nargs=1)
-@click.argument('username', default=lambda: None, envvar='PGUSER', nargs=1)
+              default=False, help='Never prompt for password.')
+@click.option('-v', '--version', is_flag=True, help='Version of vcli.')
+@click.option('-d', '--dbname', default='', envvar='VERTICA_DATABASE',
+              help='database name to connect to.')
+@click.option('--vclirc', default='~/.vclirc', envvar='VERTICA_CLIRC',
+              help='Location of .vclirc file.')
+@click.argument('database', default=lambda: None, envvar='VERTICA_DATABASE',
+                nargs=1)
+@click.argument('username', default=lambda: None, envvar='VERTICA_USER',
+                nargs=1)
 def cli(database, user, host, port, prompt_passwd, never_prompt, dbname,
-        username, version, pgclirc):
+        username, version, vclirc):
 
     if version:
         print('Version:', __version__)
         sys.exit(0)
 
-    pgcli = PGCli(prompt_passwd, never_prompt, pgclirc_file=pgclirc)
+    vcli = VCli(prompt_passwd, never_prompt, vclirc_file=vclirc)
 
     # Choose which ever one has a valid value.
     database = database or dbname
     user = username or user
 
     if '://' in database:
-        pgcli.connect_uri(database)
+        vcli.connect_uri(database)
     else:
-        pgcli.connect(database, host, user, port)
+        vcli.connect(database, host, user, port)
 
-    pgcli.logger.debug('Launch Params: \n'
-            '\tdatabase: %r'
-            '\tuser: %r'
-            '\thost: %r'
-            '\tport: %r', database, user, host, port)
+    vcli.logger.debug('Launch Params: \n'
+                      '\tdatabase: %r'
+                      '\tuser: %r'
+                      '\thost: %r'
+                      '\tport: %r', database, user, host, port)
 
-    pgcli.run_cli()
+    vcli.run_cli()
+
 
 def format_output(title, cur, headers, status, table_format, expanded=False):
     output = []
     if title:  # Only print the title if it's not None.
         output.append(title)
-    if cur:
+    if cur and headers:
         headers = [utf8tounicode(x) for x in headers]
-        if expanded:
-            output.append(expanded_table(cur, headers))
+
+        if hasattr(cur, 'iterate'):
+            rows = cur.iterate()
         else:
-            output.append(tabulate(cur, headers, tablefmt=table_format,
-                missingval='<null>'))
+            rows = cur
+
+        if expanded:
+            output.append(expanded_table(rows, headers))
+        else:
+            output.append(tabulate(rows, headers,
+                                   tablefmt=table_format, missingval='<null>'))
     if status:  # Only print the status if it's not None.
         output.append(status)
     return output
+
 
 def need_completion_refresh(queries):
     """Determines if the completion needs a refresh by checking if the sql
@@ -488,14 +513,16 @@ def need_completion_refresh(queries):
         try:
             first_token = query.split()[0]
             return first_token.lower() in ('alter', 'create', 'use', '\\c',
-                    '\\connect', 'drop')
+                                           '\\connect', 'drop')
         except Exception:
             return False
+
 
 def need_search_path_refresh(sql):
     """Determines if the search_path should be refreshed by checking if the
     sql has 'set search_path'."""
     return 'set search_path' in sql.lower()
+
 
 def is_mutating(status):
     """Determines if the statement is mutating based on the status."""
@@ -505,11 +532,13 @@ def is_mutating(status):
     mutating = set(['insert', 'update', 'delete', 'alter', 'create', 'drop'])
     return status.split(None, 1)[0].lower() in mutating
 
+
 def is_select(status):
     """Returns true if the first word in status is 'select'."""
     if not status:
         return False
     return status.split(None, 1)[0].lower() == 'select'
+
 
 def quit_command(sql):
     return (sql.strip().lower() == 'exit'

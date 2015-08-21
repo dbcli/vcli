@@ -1,6 +1,6 @@
 import pytest
-from pgcli.packages.parseutils import extract_tables
-from pgcli.packages.parseutils import find_prev_keyword
+from vcli.packages.parseutils import extract_tables
+from vcli.packages.parseutils import find_prev_keyword
 
 def test_empty_string():
     tables = extract_tables('')
@@ -73,7 +73,7 @@ def test_simple_insert_single_table():
     # assert tables == [(None, 'abc', None)]
     assert tables == [(None, 'abc', 'abc')]
 
-@pytest.mark.xfail
+
 def test_simple_insert_single_table_schema_qualified():
     tables = extract_tables('insert into abc.def (id, name) values (1, "def")')
     assert tables == [('abc', 'def', None)]

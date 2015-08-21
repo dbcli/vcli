@@ -68,7 +68,7 @@ def open_external_editor(filename=None, sql=''):
 
     return (query, message)
 
-@special_command('\\i', '\\i file', 'Execute commands from file.')
+@special_command('\\i', '\\i FILE', 'Execute commands from file')
 def execute_from_file(cur, pattern, **_):
     if pattern:
         try:
@@ -92,7 +92,7 @@ def read_from_file(path):
         contents = f.read()
     return contents
 
-@special_command('\\n', '\\n[+] [name]', 'List or execute named queries.')
+@special_command('\\n', '\\n[+] [NAME]', 'List or execute named queries')
 def execute_named_query(cur, pattern, **_):
     """Returns (title, rows, headers, status)"""
     if pattern == '':
@@ -106,9 +106,9 @@ def execute_named_query(cur, pattern, **_):
     cur.execute(query)
     if cur.description:
         headers = [x[0] for x in cur.description]
-        return [(title, cur, headers, cur.statusmessage)]
+        return [(title, cur, headers, None)]
     else:
-        return [(title, None, None, cur.statusmessage)]
+        return [(title, None, None, None)]
 
 def list_named_queries(verbose):
     """List of all named queries.
@@ -126,7 +126,7 @@ def list_named_queries(verbose):
         status = ''
     return [('', rows, headers, status)]
 
-@special_command('\\ns', '\\ns name query', 'Save a named query.')
+@special_command('\\ns', '\\ns NAME QUERY', 'Save a named query')
 def save_named_query(pattern, **_):
     """Save a new named query.
     Returns (title, rows, headers, status)"""
@@ -145,7 +145,7 @@ def save_named_query(pattern, **_):
     namedqueries.save(name, query)
     return [(None, None, None, "Saved.")]
 
-@special_command('\\nd', '\\nd [name]', 'Delete a named query.')
+@special_command('\\nd', '\\nd [NAME]', 'Delete a named query')
 def delete_named_query(pattern, **_):
     """Delete an existing named query.
     """

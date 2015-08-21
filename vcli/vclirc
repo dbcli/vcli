@@ -13,13 +13,13 @@ wider_completion_menu = False
 # this is set to True, then the end of the statements must have a semi-colon.
 # If this is set to False then sql statements can't be split into multiple
 # lines. End of line (return) is considered as the end of the statement.
-multi_line = False
+multi_line = True
 
 # log_file location.
-log_file = ~/.pgcli.log
+log_file = ~/.vcli.log
 
 # history_file location.
-history_file = ~/.pgcli-history
+history_file = ~/.vcli-history
 
 # Default log level. Possible values: "CRITICAL", "ERROR", "WARNING", "INFO"
 # and "DEBUG".
@@ -38,14 +38,14 @@ table_format = psql
 # colorful, murphy, bw, pastie, paraiso-light, trac, default, fruity
 syntax_style = default
 
-# Keybindings: 
+# Keybindings:
 # When Vi mode is enabled you can use modal editing features offered by Vi in the REPL.
 # When Vi mode is disabled emacs keybindings such as Ctrl-A for home and Ctrl-E
 # for end are available in the REPL.
 vi = False
 
 
-# Custom colors for the completion menu, toolbar, etc. 
+# Custom colors for the completion menu, toolbar, etc.
 [colors]
 Token.Menu.Completions.Completion.Current = 'bg:#ffffff #000000'
 Token.Menu.Completions.Completion = 'bg:#008888 #ffffff'

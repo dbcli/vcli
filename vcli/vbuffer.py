@@ -1,7 +1,7 @@
 from prompt_toolkit.buffer import Buffer
 from prompt_toolkit.filters import Condition
 
-class PGBuffer(Buffer):
+class VBuffer(Buffer):
     def __init__(self, always_multiline, *args, **kwargs):
         self.always_multiline = always_multiline
 

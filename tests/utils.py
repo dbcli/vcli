@@ -1,67 +1,52 @@
 import pytest
-import psycopg2
-import psycopg2.extras
-from pgcli.main import format_output
-from pgcli.pgexecute import register_json_typecasters
+
+import vertica_python as vertica
+
+from vcli.main import format_output
+# from vcli.vexecute import register_json_typecasters
+
 
 # TODO: should this be somehow be divined from environment?
-POSTGRES_USER, POSTGRES_HOST = 'postgres', 'localhost'
+VERTICA_USER = 'dbadmin'
+VERTICA_PASSWORD = 'pass'
+VERTICA_HOST = 'vertica.local'
+VERTICA_DATABASE = 'localdev'
 
 
-def db_connection(dbname=None):
-    conn = psycopg2.connect(user=POSTGRES_USER, host=POSTGRES_HOST, database=dbname)
-    conn.autocommit = True
+def db_connection():
+    conn = vertica.connect(user=VERTICA_USER, password=VERTICA_PASSWORD,
+                           host=VERTICA_HOST, database=VERTICA_DATABASE)
     return conn
 
 
 try:
     conn = db_connection()
     CAN_CONNECT_TO_DB = True
-    SERVER_VERSION = conn.server_version
-    json_types = register_json_typecasters(conn, lambda x: x)
-    JSON_AVAILABLE = 'json' in json_types
-    JSONB_AVAILABLE = 'jsonb' in json_types
 except:
-    CAN_CONNECT_TO_DB = JSON_AVAILABLE = JSONB_AVAILABLE = False
-    SERVER_VERSION = 0
+    raise
+    CAN_CONNECT_TO_DB = False
 
 
 dbtest = pytest.mark.skipif(
     not CAN_CONNECT_TO_DB,
-    reason="Need a postgres instance at localhost accessible by user 'postgres'")
+    reason="Need a Vertica instance at %s accessible by user '%s'" %
+    (VERTICA_HOST, VERTICA_USER))
 
 
-requires_json = pytest.mark.skipif(
-    not JSON_AVAILABLE,
-    reason='Postgres server unavailable or json type not defined')
-
-
-requires_jsonb = pytest.mark.skipif(
-    not JSONB_AVAILABLE,
-    reason='Postgres server unavailable or jsonb type not defined')
-
-
-def create_db(dbname):
+def create_schema():
     with db_connection().cursor() as cur:
-        try:
-            cur.execute('''CREATE DATABASE _test_db''')
-        except:
-            pass
+        cur.execute('CREATE SCHEMA vcli_test')
 
 
-def drop_tables(conn):
+def drop_schema(conn):
     with conn.cursor() as cur:
-        cur.execute('''
-            DROP SCHEMA public CASCADE;
-            CREATE SCHEMA public;
-            DROP SCHEMA IF EXISTS schema1 CASCADE;
-            DROP SCHEMA IF EXISTS schema2 CASCADE''')
+        cur.execute('DROP SCHEMA vcli_test CASCADE')
 
 
-def run(executor, sql, join=False, expanded=False, pgspecial=None):
+def run(executor, sql, join=False, expanded=False, vspecial=None):
     " Return string output for the sql to be run "
     result = []
-    for title, rows, headers, status in executor.run(sql, pgspecial):
+    for title, rows, headers, status in executor.run(sql, vspecial):
         result.extend(format_output(title, rows, headers, status, 'psql',
                                     expanded=expanded))
     if join:

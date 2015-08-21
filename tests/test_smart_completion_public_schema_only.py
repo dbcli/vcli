@@ -4,21 +4,22 @@ from prompt_toolkit.completion import Completion
 from prompt_toolkit.document import Document
 
 metadata = {
-                'tables': {
-                    'users': ['id', 'email', 'first_name', 'last_name'],
-                    'orders': ['id', 'ordered_date', 'status', 'email'],
-                    'select': ['id', 'insert', 'ABC']},
-                'views': {
-                    'user_emails': ['id', 'email']},
-                'functions': ['custom_func1', 'custom_func2'],
-                'datatypes': ['custom_type1', 'custom_type2'],
-            }
+    'tables': {
+        'users': ['id', 'email', 'first_name', 'last_name'],
+        'orders': ['id', 'ordered_date', 'status', 'email'],
+        'select': ['id', 'insert', 'ABC']},
+    'views': {
+        'user_emails': ['id', 'email']},
+    'functions': ['custom_func1', 'custom_func2'],
+    'datatypes': ['custom_type1', 'custom_type2'],
+}
+
 
 @pytest.fixture
 def completer():
 
-    import pgcli.pgcompleter as pgcompleter
-    comp = pgcompleter.PGCompleter(smart_completion=True)
+    import vcli.vcompleter as vcompleter
+    comp = vcompleter.VCompleter(smart_completion=True)
 
     schemata = ['public']
     comp.extend_schemata(schemata)
@@ -53,10 +54,12 @@ def completer():
 
     return comp
 
+
 @pytest.fixture
 def complete_event():
     from mock import Mock
     return Mock()
+
 
 def test_empty_string_completion(completer, complete_event):
     text = ''
@@ -66,7 +69,8 @@ def test_empty_string_completion(completer, complete_event):
             Document(text=text, cursor_position=position),
             complete_event))
     assert set(map(lambda x: Completion(x, display_meta='keyword'),
-                    completer.keywords)) == result
+                   completer.keywords)) == result
+
 
 def test_select_keyword_completion(completer, complete_event):
     text = 'SEL'
@@ -117,8 +121,11 @@ def test_user_function_name_completion(completer, complete_event):
     result = completer.get_completions(
         Document(text=text, cursor_position=position), complete_event)
     assert set(result) == set([
-        Completion(text='custom_func1', start_position=-2, display_meta='function'),
-        Completion(text='custom_func2', start_position=-2, display_meta='function')])
+        Completion(
+            text='custom_func1', start_position=-2, display_meta='function'),
+        Completion(text='custom_func2', start_position=-2,
+                   display_meta='function')
+    ])
 
 
 def test_user_function_name_completion_matches_anywhere(completer,
@@ -128,8 +135,11 @@ def test_user_function_name_completion_matches_anywhere(completer,
     result = completer.get_completions(
         Document(text=text, cursor_position=position), complete_event)
     assert set(result) == set([
-        Completion(text='custom_func1', start_position=-2, display_meta='function'),
-        Completion(text='custom_func2', start_position=-2, display_meta='function')])
+        Completion(
+            text='custom_func1', start_position=-2, display_meta='function'),
+        Completion(text='custom_func2', start_position=-2,
+                   display_meta='function')
+    ])
 
 
 def test_suggested_column_names_from_visible_table(completer, complete_event):
@@ -150,7 +160,8 @@ def test_suggested_column_names_from_visible_table(completer, complete_event):
         Completion(text='email', start_position=0, display_meta='column'),
         Completion(text='first_name', start_position=0, display_meta='column'),
         Completion(text='last_name', start_position=0, display_meta='column'),
-        Completion(text='custom_func1', start_position=0, display_meta='function'),
+        Completion(
+            text='custom_func1', start_position=0, display_meta='function'),
         Completion(text='custom_func2', start_position=0, display_meta='function')] +
         list(map(lambda f: Completion(f, display_meta='function'), completer.functions)))
 
@@ -175,6 +186,7 @@ def test_suggested_column_names_in_function(completer, complete_event):
         Completion(text='first_name', start_position=0, display_meta='column'),
         Completion(text='last_name', start_position=0, display_meta='column')])
 
+
 def test_suggested_column_names_with_table_dot(completer, complete_event):
     """
     Suggest column names on table name and dot
@@ -193,6 +205,7 @@ def test_suggested_column_names_with_table_dot(completer, complete_event):
         Completion(text='email', start_position=0, display_meta='column'),
         Completion(text='first_name', start_position=0, display_meta='column'),
         Completion(text='last_name', start_position=0, display_meta='column')])
+
 
 def test_suggested_column_names_with_alias(completer, complete_event):
     """
@@ -213,6 +226,7 @@ def test_suggested_column_names_with_alias(completer, complete_event):
         Completion(text='first_name', start_position=0, display_meta='column'),
         Completion(text='last_name', start_position=0, display_meta='column')])
 
+
 def test_suggested_multiple_column_names(completer, complete_event):
     """
     Suggest column and function names when selecting multiple
@@ -232,9 +246,11 @@ def test_suggested_multiple_column_names(completer, complete_event):
         Completion(text='email', start_position=0, display_meta='column'),
         Completion(text='first_name', start_position=0, display_meta='column'),
         Completion(text='last_name', start_position=0, display_meta='column'),
-        Completion(text='custom_func1', start_position=0, display_meta='function'),
+        Completion(
+            text='custom_func1', start_position=0, display_meta='function'),
         Completion(text='custom_func2', start_position=0, display_meta='function')] +
         list(map(lambda f: Completion(f, display_meta='function'), completer.functions)))
+
 
 def test_suggested_multiple_column_names_with_alias(completer, complete_event):
     """
@@ -256,6 +272,7 @@ def test_suggested_multiple_column_names_with_alias(completer, complete_event):
         Completion(text='first_name', start_position=0, display_meta='column'),
         Completion(text='last_name', start_position=0, display_meta='column')])
 
+
 def test_suggested_multiple_column_names_with_dot(completer, complete_event):
     """
     Suggest column names on table names and dot
@@ -276,6 +293,7 @@ def test_suggested_multiple_column_names_with_dot(completer, complete_event):
         Completion(text='first_name', start_position=0, display_meta='column'),
         Completion(text='last_name', start_position=0, display_meta='column')])
 
+
 def test_suggested_aliases_after_on(completer, complete_event):
     text = 'SELECT u.name, o.id FROM users u JOIN orders o ON '
     position = len('SELECT u.name, o.id FROM users u JOIN orders o ON ')
@@ -286,15 +304,18 @@ def test_suggested_aliases_after_on(completer, complete_event):
         Completion(text='u', start_position=0, display_meta='table alias'),
         Completion(text='o', start_position=0, display_meta='table alias')])
 
+
 def test_suggested_aliases_after_on_right_side(completer, complete_event):
     text = 'SELECT u.name, o.id FROM users u JOIN orders o ON o.user_id = '
-    position = len('SELECT u.name, o.id FROM users u JOIN orders o ON o.user_id = ')
+    position = len(
+        'SELECT u.name, o.id FROM users u JOIN orders o ON o.user_id = ')
     result = set(completer.get_completions(
         Document(text=text, cursor_position=position),
         complete_event))
     assert set(result) == set([
         Completion(text='u', start_position=0, display_meta='table alias'),
         Completion(text='o', start_position=0, display_meta='table alias')])
+
 
 def test_suggested_tables_after_on(completer, complete_event):
     text = 'SELECT users.name, orders.id FROM users JOIN orders ON '
@@ -306,15 +327,18 @@ def test_suggested_tables_after_on(completer, complete_event):
         Completion(text='users', start_position=0, display_meta='table alias'),
         Completion(text='orders', start_position=0, display_meta='table alias')])
 
+
 def test_suggested_tables_after_on_right_side(completer, complete_event):
     text = 'SELECT users.name, orders.id FROM users JOIN orders ON orders.user_id = '
-    position = len('SELECT users.name, orders.id FROM users JOIN orders ON orders.user_id = ')
+    position = len(
+        'SELECT users.name, orders.id FROM users JOIN orders ON orders.user_id = ')
     result = set(completer.get_completions(
         Document(text=text, cursor_position=position),
         complete_event))
     assert set(result) == set([
         Completion(text='users', start_position=0, display_meta='table alias'),
         Completion(text='orders', start_position=0, display_meta='table alias')])
+
 
 def test_join_using_suggests_common_columns(completer, complete_event):
     text = 'SELECT * FROM users INNER JOIN orders USING ('
@@ -324,7 +348,8 @@ def test_join_using_suggests_common_columns(completer, complete_event):
     assert set(result) == set([
         Completion(text='id', start_position=0, display_meta='column'),
         Completion(text='email', start_position=0, display_meta='column'),
-        ])
+    ])
+
 
 def test_join_using_suggests_columns_after_first_column(completer, complete_event):
     text = 'SELECT * FROM users INNER JOIN orders USING (id,'
@@ -334,7 +359,8 @@ def test_join_using_suggests_columns_after_first_column(completer, complete_even
     assert set(result) == set([
         Completion(text='id', start_position=0, display_meta='column'),
         Completion(text='email', start_position=0, display_meta='column'),
-        ])
+    ])
+
 
 def test_table_names_after_from(completer, complete_event):
     text = 'SELECT * FROM '
@@ -348,7 +374,8 @@ def test_table_names_after_from(completer, complete_event):
         Completion(text='orders', start_position=0, display_meta='table'),
         Completion(text='"select"', start_position=0, display_meta='table'),
         Completion(text='user_emails', start_position=0, display_meta='view'),
-        ])
+    ])
+
 
 def test_auto_escaped_col_names(completer, complete_event):
     text = 'SELECT  from "select"'
@@ -361,7 +388,8 @@ def test_auto_escaped_col_names(completer, complete_event):
         Completion(text='id', start_position=0, display_meta='column'),
         Completion(text='"insert"', start_position=0, display_meta='column'),
         Completion(text='"ABC"', start_position=0, display_meta='column'),
-        Completion(text='custom_func1', start_position=0, display_meta='function'),
+        Completion(
+            text='custom_func1', start_position=0, display_meta='function'),
         Completion(text='custom_func2', start_position=0, display_meta='function')] +
         list(map(lambda f: Completion(f, display_meta='function'), completer.functions)))
 
@@ -377,8 +405,10 @@ def test_suggest_datatype(text, completer, complete_event):
     result = completer.get_completions(
         Document(text=text, cursor_position=pos), complete_event)
     assert set(result) == set([
-        Completion(text='custom_type1', start_position=0, display_meta='datatype'),
-        Completion(text='custom_type2', start_position=0, display_meta='datatype'),
+        Completion(
+            text='custom_type1', start_position=0, display_meta='datatype'),
+        Completion(
+            text='custom_type2', start_position=0, display_meta='datatype'),
         Completion(text='public', start_position=0, display_meta='schema'),
         Completion(text='users', start_position=0, display_meta='table'),
         Completion(text='orders', start_position=0, display_meta='table'),

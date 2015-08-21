@@ -3,20 +3,34 @@ Feature: run the cli,
   exit the cli
 
   Scenario: run the cli
-     Given we have pgcli installed
-      when we run pgcli
-      then we see pgcli prompt
+     Given we have vcli installed
+      when we run vcli
+      then we see vcli prompt
 
   Scenario: run "\?" command
-     Given we have pgcli installed
-      when we run pgcli
+     Given we have vcli installed
+      when we run vcli
       and we wait for prompt
       and we send "\?" command
       then we see help output
 
-  Scenario: run the cli and exit
-     Given we have pgcli installed
-      when we run pgcli
+  Scenario: run "\h" command
+     Given we have vcli installed
+      when we run vcli
+      and we wait for prompt
+      and we send "\h" command
+      then we see help output
+
+  Scenario: run the cli and exit using "ctrl + d"
+     Given we have vcli installed
+      when we run vcli
       and we wait for prompt
       and we send "ctrl + d"
-      then pgcli exits
+      then vcli exits
+
+  Scenario: run the cli and exit using "\q"
+     Given we have vcli installed
+      when we run vcli
+      and we wait for prompt
+      and we send "\q" command
+      then vcli exits

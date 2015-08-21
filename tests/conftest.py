@@ -1,16 +1,16 @@
 import pytest
-from utils import (POSTGRES_HOST, POSTGRES_USER, create_db, db_connection,
-drop_tables)
-import pgcli.pgexecute
+
+import utils
+import vcli.vexecute
 
 
 @pytest.yield_fixture(scope="function")
 def connection():
-    create_db('_test_db')
-    connection = db_connection('_test_db')
+    utils.create_schema()
+    connection = utils.db_connection()
     yield connection
 
-    drop_tables(connection)
+    utils.drop_schema(connection)
     connection.close()
 
 
@@ -22,5 +22,6 @@ def cursor(connection):
 
 @pytest.fixture
 def executor(connection):
-    return pgcli.pgexecute.PGExecute(database='_test_db', user=POSTGRES_USER,
-            host=POSTGRES_HOST, password=None, port=None)
+    return vcli.vexecute.VExecute(
+        database=utils.VERTICA_DATABASE, user=utils.VERTICA_USER,
+        host=utils.VERTICA_HOST, password=utils.VERTICA_PASSWORD, port=5433)

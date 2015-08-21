@@ -5,8 +5,8 @@ from prompt_toolkit.document import Document
 
 @pytest.fixture
 def completer():
-    import pgcli.pgcompleter as pgcompleter
-    return pgcompleter.PGCompleter(smart_completion=False)
+    import vcli.vcompleter as vcompleter
+    return vcompleter.VCompleter(smart_completion=False)
 
 @pytest.fixture
 def complete_event():

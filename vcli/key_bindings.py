@@ -5,9 +5,10 @@ from prompt_toolkit.filters import Condition
 
 _logger = logging.getLogger(__name__)
 
-def pgcli_bindings(get_vi_mode_enabled, set_vi_mode_enabled):
+
+def vcli_bindings(get_vi_mode_enabled, set_vi_mode_enabled):
     """
-    Custom key bindings for pgcli.
+    Custom key bindings for vcli.
     """
     assert callable(get_vi_mode_enabled)
     assert callable(set_vi_mode_enabled)

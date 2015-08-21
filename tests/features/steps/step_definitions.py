@@ -6,27 +6,29 @@ This string is used to call the step in "*.feature" file.
 """
 from __future__ import unicode_literals
 
+import os
+
 import pip
 import pexpect
 
 from behave import given, when, then
 
 
-@given('we have pgcli installed')
+@given('we have vcli installed')
 def step_install_cli(_):
     """
-    Check that pgcli is in installed modules.
+    Check that vcli is in installed modules.
     """
     dists = set([di.key for di in pip.get_installed_distributions()])
-    assert 'pgcli' in dists
+    assert 'vcli' in dists
 
 
-@when('we run pgcli')
+@when('we run vcli')
 def step_run_cli(context):
     """
     Run the process using pexpect.
     """
-    context.cli = pexpect.spawnu('pgcli')
+    context.cli = pexpect.spawnu('vcli %s' % os.getenv('VERTICA_URL'))
 
 
 @when('we wait for prompt')
@@ -34,7 +36,7 @@ def step_wait_prompt(context):
     """
     Make sure prompt is displayed.
     """
-    context.cli.expect('{0}> '.format(context.conf['dbname']), timeout=5)
+    context.cli.expect('{0}=> '.format(context.conf['dbname']), timeout=7)
 
 
 @when('we send "ctrl + d"')
@@ -46,34 +48,45 @@ def step_ctrl_d(context):
     context.exit_sent = True
 
 
+@when('we send "\q" command')
+def step_quit(context):
+    """
+    Send \q to hopefully exit.
+    """
+    context.cli.sendline('\\q')
+    context.exit_sent = True
+
+
 @when('we send "\?" command')
 def step_send_help(context):
     """
     Send \? to see help.
     """
-    context.cli.sendline('\?')
+    context.cli.sendline('\\?')
 
 
-@when('we create database')
-def step_db_create(context):
+@when('we send "\h" command')
+def step_send_help2(context):
+    """
+    Send \h to see help.
+    """
+    context.cli.sendline('\\h')
+
+
+@when('we create schema')
+def step_schema_create(context):
     """
     Send create database.
     """
-    context.cli.sendline('create database {0};'.format(
-        context.conf['dbname_tmp']))
-
-    context.response = {
-        'database_name': context.conf['dbname_tmp']
-    }
+    context.cli.sendline('create schema vcli_test;')
 
 
-@when('we drop database')
-def step_db_drop(context):
+@when('we drop schema')
+def step_schema_drop(context):
     """
-    Send drop database.
+    Send drop schema.
     """
-    context.cli.sendline('drop database {0};'.format(
-        context.conf['dbname_tmp']))
+    context.cli.sendline('drop schema vcli_test;')
 
 
 @when('we create table')
@@ -81,7 +94,7 @@ def step_create_table(context):
     """
     Send create table.
     """
-    context.cli.sendline('create table a(x text);')
+    context.cli.sendline('create table vcli_test.people(name varchar(30));')
 
 
 @when('we insert into table')
@@ -89,7 +102,7 @@ def step_insert_into_table(context):
     """
     Send insert into table.
     """
-    context.cli.sendline('''insert into a(x) values('xxx');''')
+    context.cli.sendline("insert into vcli_test.people (name) values('Bob');")
 
 
 @when('we update table')
@@ -97,15 +110,7 @@ def step_update_table(context):
     """
     Send insert into table.
     """
-    context.cli.sendline('''update a set x = 'yyy' where x = 'xxx';''')
-
-
-@when('we select from table')
-def step_select_from_table(context):
-    """
-    Send select from table.
-    """
-    context.cli.sendline('select * from a;')
+    context.cli.sendline("update vcli_test.people set name = 'Alice';")
 
 
 @when('we delete from table')
@@ -113,7 +118,7 @@ def step_delete_from_table(context):
     """
     Send deete from table.
     """
-    context.cli.sendline('''delete from a where x = 'yyy';''')
+    context.cli.sendline('delete from vcli_test.people;')
 
 
 @when('we drop table')
@@ -121,65 +126,65 @@ def step_drop_table(context):
     """
     Send drop table.
     """
-    context.cli.sendline('drop table a;')
+    context.cli.sendline('drop table vcli_test.people;')
 
 
-@when('we connect to test database')
-def step_db_connect_test(context):
+@when('we connect to database')
+def step_db_connect_database(context):
     """
     Send connect to database.
     """
-    db_name = context.conf['dbname']
-    context.cli.sendline('\connect {0}'.format(db_name))
+    dbname = context.conf['dbname']
+    context.cli.sendline('\\c %s' % dbname)
 
 
-@when('we connect to postgres')
-def step_db_connect_postgres(context):
-    """
-    Send connect to database.
-    """
-    context.cli.sendline('\connect postgres')
-
-
-@then('pgcli exits')
+@then('vcli exits')
 def step_wait_exit(context):
     """
     Make sure the cli exits.
     """
-    context.cli.expect(pexpect.EOF, timeout=5)
+    context.cli.expect(pexpect.EOF, timeout=2)
 
 
-@then('we see pgcli prompt')
+@then('we see vcli prompt')
 def step_see_prompt(context):
     """
     Wait to see the prompt.
     """
-    context.cli.expect('{0}> '.format(context.conf['dbname']), timeout=5)
+    context.cli.expect('{0}=> '.format(context.conf['dbname']), timeout=3)
 
 
 @then('we see help output')
 def step_see_help(context):
     for expected_line in context.fixture_data['help_commands.txt']:
         try:
-            context.cli.expect_exact(expected_line, timeout=1)
-        except Exception:
-            raise Exception('Expected: ' + expected_line.strip() + '!')
+            context.cli.expect_exact(expected_line, timeout=3)
+        except pexpect.TIMEOUT:
+            assert False, 'Expected: ' + expected_line.strip()
 
 
-@then('we see database created')
-def step_see_db_created(context):
+@then('we see schema created')
+def step_see_schema_created(context):
     """
     Wait to see create database output.
     """
-    context.cli.expect_exact('CREATE DATABASE', timeout=2)
+    context.cli.sendline('\\dn')
+    context.cli.expect(r'vcli_test\s*\|\s*%(user)s' % context.conf, timeout=2)
 
 
-@then('we see database dropped')
-def step_see_db_dropped(context):
+@then('we see schema dropped')
+def step_see_schema_dropped(context):
     """
     Wait to see drop database output.
     """
-    context.cli.expect_exact('DROP DATABASE', timeout=2)
+    context.cli.sendline('\\dn')
+    try:
+        context.cli.expect(r'vcli_test\s*\|\s*%(user)s' % context.conf,
+                           timeout=2)
+    except pexpect.TIMEOUT:
+        pass
+    else:
+        assert False, "Schema 'vcli_test' should not exist"
 
 
 @then('we see database connected')
@@ -195,7 +200,8 @@ def step_see_table_created(context):
     """
     Wait to see create table output.
     """
-    context.cli.expect_exact('CREATE TABLE', timeout=2)
+    context.cli.sendline('\\dt vcli_test.*')
+    context.cli.expect(r'vcli_test\s*\|\s*people', timeout=2)
 
 
 @then('we see record inserted')
@@ -203,7 +209,8 @@ def step_see_record_inserted(context):
     """
     Wait to see insert output.
     """
-    context.cli.expect_exact('INSERT 0 1', timeout=2)
+    context.cli.sendline('select name from vcli_test.people;')
+    context.cli.expect(r'Bob\s*\|', timeout=2)
 
 
 @then('we see record updated')
@@ -211,16 +218,8 @@ def step_see_record_updated(context):
     """
     Wait to see update output.
     """
-    context.cli.expect_exact('UPDATE 1', timeout=2)
-
-
-@then('we see data selected')
-def step_see_data_selected(context):
-    """
-    Wait to see select output.
-    """
-    context.cli.expect_exact('yyy', timeout=1)
-    context.cli.expect_exact('SELECT 1', timeout=1)
+    context.cli.sendline('select name from vcli_test.people;')
+    context.cli.expect(r'Alice\s*\|', timeout=2)
 
 
 @then('we see record deleted')
@@ -228,7 +227,9 @@ def step_see_data_deleted(context):
     """
     Wait to see delete output.
     """
-    context.cli.expect_exact('DELETE 1', timeout=2)
+    context.cli.sendline('select count(1) as rowcount from vcli_test.people;')
+    context.cli.expect(r'rowcount\s*\|', timeout=2)
+    context.cli.expect(r'0\s*\|', timeout=1)
 
 
 @then('we see table dropped')
@@ -236,4 +237,10 @@ def step_see_table_dropped(context):
     """
     Wait to see drop output.
     """
-    context.cli.expect_exact('DROP TABLE', timeout=2)
+    context.cli.sendline('\\dt vcli_test')
+    try:
+        context.cli.expect(r'vcli_test\s*\|\s*people', timeout=2)
+    except pexpect.TIMEOUT:
+        pass
+    else:
+        assert False, "Table 'vcli_test.people' should not exist"
