@@ -236,10 +236,7 @@ class VCli(object):
             get_vi_mode_enabled=lambda: self.vi_mode,
             set_vi_mode_enabled=set_vi_mode)
 
-        print('Version:', __version__)
-        # print('Chat: https://gitter.im/dbcli/pgcli')
-        # print('Mail: https://groups.google.com/forum/#!forum/pgcli')
-        # print('Home: http://pgcli.com')
+        click.secho('Version: %s' % __version__)
 
         def prompt_tokens(cli):
             return [(Token.Prompt, '%s=> ' % vexecute.dbname)]
@@ -451,7 +448,7 @@ class VCli(object):
 @click.option('-v', '--version', is_flag=True, help='Version of vcli.')
 @click.option('-d', '--dbname', default='', envvar='VERTICA_DATABASE',
               help='database name to connect to.')
-@click.option('--vclirc', default='~/.vclirc', envvar='VERTICA_CLIRC',
+@click.option('--vclirc', default='~/.vclirc', envvar='VCLIRC',
               help='Location of .vclirc file.')
 @click.argument('database', default=lambda: None, envvar='VERTICA_DATABASE',
                 nargs=1)
@@ -467,7 +464,7 @@ def cli(database, user, host, port, prompt_passwd, never_prompt, dbname,
     vcli = VCli(prompt_passwd, never_prompt, vclirc_file=vclirc)
 
     # Choose which ever one has a valid value.
-    database = database or dbname
+    database = database or dbname or os.getenv('VERTICA_URL', '')
     user = username or user
 
     if '://' in database:

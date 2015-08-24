@@ -8,8 +8,10 @@ from __future__ import unicode_literals
 
 import os
 
-import pip
 import pexpect
+import pip
+
+from urlparse import urlparse
 
 from behave import given, when, then
 
@@ -23,12 +25,40 @@ def step_install_cli(_):
     assert 'vcli' in dists
 
 
-@when('we run vcli')
-def step_run_cli(context):
+@when('we run vcli without arguments')
+def step_run_cli_without_args(context):
     """
     Run the process using pexpect.
     """
+    context.cli = pexpect.spawnu('vcli')
+    print(context.cli.before)
+
+
+@when('we run vcli with url')
+def step_run_cli_with_url(context):
     context.cli = pexpect.spawnu('vcli %s' % os.getenv('VERTICA_URL'))
+
+
+@when('we run vcli with arguments')
+def step_run_cli_with_args(context):
+    url = urlparse(os.getenv('VERTICA_URL'))
+    args = {
+        'host': url.hostname,
+        'port': url.port,
+        'user': url.username,
+        'password': url.password,
+        'database': url.path[1:]
+    }
+    print('vcli -h %(host)s -U %(user)s -W -p %(port)s %(database)s' % args)
+    context.cli = pexpect.spawnu(
+        'vcli -h %(host)s -U %(user)s -W -p %(port)s %(database)s' % args)
+    context.cli.expect_exact('Password:')
+    context.cli.sendline(args['password'])
+
+
+@when('we run vcli help')
+def step_run_cli_help(context):
+    context.cli = pexpect.spawnu('vcli --help')
 
 
 @when('we wait for prompt')
@@ -144,6 +174,11 @@ def step_wait_exit(context):
     Make sure the cli exits.
     """
     context.cli.expect(pexpect.EOF, timeout=2)
+
+
+@then('we see vcli help')
+def step_see_cli_help(context):
+    context.cli.expect_exact('Usage: vcli ')
 
 
 @then('we see vcli prompt')
