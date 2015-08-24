@@ -3,7 +3,7 @@ Feature: manipulate schemas:
 
   Scenario: create and drop temporary schema
      Given we have vcli installed
-      when we run vcli
+      when we run vcli without arguments
       and we wait for prompt
       and we create schema
       then we see schema created
@@ -14,7 +14,7 @@ Feature: manipulate schemas:
 
   Scenario: connect and disconnect from test database
      Given we have vcli installed
-      when we run vcli
+      when we run vcli with url
       and we wait for prompt
       and we connect to database
       then we see database connected

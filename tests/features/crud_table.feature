@@ -4,7 +4,7 @@ Feature: manipulate tables:
   @wip
   Scenario: create, insert, select from, update, drop table
      Given we have vcli installed
-      when we run vcli
+      when we run vcli without arguments
       and we wait for prompt
       and we create schema
       then we see schema created
