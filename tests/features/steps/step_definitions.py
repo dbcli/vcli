@@ -31,7 +31,6 @@ def step_run_cli_without_args(context):
     Run the process using pexpect.
     """
     context.cli = pexpect.spawnu('vcli')
-    print(context.cli.before)
 
 
 @when('we run vcli with url')
@@ -44,14 +43,13 @@ def step_run_cli_with_args(context):
     url = urlparse(os.getenv('VERTICA_URL'))
     args = {
         'host': url.hostname,
-        'port': url.port,
+        'port': url.port or 5433,
         'user': url.username,
         'password': url.password,
         'database': url.path[1:]
     }
-    print('vcli -h %(host)s -U %(user)s -W -p %(port)s %(database)s' % args)
-    context.cli = pexpect.spawnu(
-        'vcli -h %(host)s -U %(user)s -W -p %(port)s %(database)s' % args)
+    cmd = 'vcli -h %(host)s -U %(user)s -W -p %(port)s %(database)s' % args
+    context.cli = pexpect.spawnu(cmd)
     context.cli.expect_exact('Password:')
     context.cli.sendline(args['password'])
 
@@ -59,6 +57,7 @@ def step_run_cli_with_args(context):
 @when('we run vcli help')
 def step_run_cli_help(context):
     context.cli = pexpect.spawnu('vcli --help')
+    context.exit_sent = True
 
 
 @when('we wait for prompt')
@@ -133,22 +132,28 @@ def step_insert_into_table(context):
     Send insert into table.
     """
     context.cli.sendline("insert into vcli_test.people (name) values('Bob');")
+    context.cli.expect(r'OUTPUT\s*\|', timeout=2)
+    context.cli.expect(r'1\s*\|', timeout=1)
 
 
 @when('we update table')
 def step_update_table(context):
     """
-    Send insert into table.
+    Send update table.
     """
     context.cli.sendline("update vcli_test.people set name = 'Alice';")
+    context.cli.expect(r'OUTPUT\s*\|', timeout=2)
+    context.cli.expect(r'1\s*\|', timeout=1)
 
 
 @when('we delete from table')
 def step_delete_from_table(context):
     """
-    Send deete from table.
+    Send delete from table.
     """
     context.cli.sendline('delete from vcli_test.people;')
+    context.cli.expect(r'OUTPUT\s*\|', timeout=2)
+    context.cli.expect(r'1\s*\|', timeout=1)
 
 
 @when('we drop table')
