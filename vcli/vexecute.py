@@ -144,7 +144,7 @@ class VExecute(object):
         title = None
         statusmessage = None
         first_token = split_sql.split()[0].lower()
-        if cur.description and first_token == 'select':
+        if cur.description and first_token in ('select', 'update', 'delete', 'insert'):
             headers = [x[0] for x in cur.description]
             return (title, cur, headers, statusmessage)
         else:

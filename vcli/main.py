@@ -152,6 +152,9 @@ class VCli(object):
         if not database:
             database = user
 
+        if not port:
+            port = 5433
+
         # If password prompt is not forced but no password is provided, try
         # getting it from environment variable.
         if not self.force_passwd_prompt and not passwd:
