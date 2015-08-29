@@ -1,4 +1,6 @@
 import logging
+import socket
+import sys
 
 import sqlparse
 
@@ -80,7 +82,23 @@ class VExecute(object):
 
         conn = vertica.connect(database=db, user=user, password=password,
                                host=host, port=int(port))
-        # conn.set_client_encoding('utf8')
+
+        # HACK: Modify vertica_python's connection socket to do keep alive
+        # TODO: Keep alive for Windows and other platforms
+        # http://stackoverflow.com/questions/12248132/how-to-change-tcp-keepalive-timer-using-python-script
+        sock = conn._socket()
+        if sys.platform == 'darwin':  # Mac OS X
+            tcp_keepalive = 0x10
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            sock.setsockopt(socket.IPPROTO_TCP, tcp_keepalive, 60)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+        elif sys.platform.startswith('linux'):
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 5)
+
         if hasattr(self, 'conn'):
             self.conn.close()
         self.conn = conn
@@ -144,7 +162,8 @@ class VExecute(object):
         title = None
         statusmessage = None
         first_token = split_sql.split()[0].lower()
-        if cur.description and first_token in ('select', 'update', 'delete', 'insert'):
+        if cur.description and first_token in ('select', 'update', 'delete',
+                                               'insert'):
             headers = [x[0] for x in cur.description]
             return (title, cur, headers, statusmessage)
         else:
