@@ -142,6 +142,12 @@ First, install the requirements for testing::
 
     $ pip install -r requirements-dev.txt
 
+You also need to a Vertica database account that allows you to do anything on
+the database, including creating and dropping schemata. The test code will
+create a schema named "vcli_test" to perform the testing. And it is dropped
+when the tests are completed. So you must make sure your database doesn't
+already has a "vcli_test" schema. Otherwise the data in it will be lost!
+
 The test code reads Vertica connection settings from an environment variable
 named ``VERTICA_URL``. Before you run any tests, you must set this variable
 somewhere. One place you can put this variable is virtualenv's `activate`

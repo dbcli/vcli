@@ -1,35 +1,48 @@
 vcli: A REPL for Vertica
 ========================
 
-A Vertica client that does auto-completion and syntax highlighting, based on
+A Vertica_ client that does auto-completion and syntax highlighting, based on
 pgcli_.
 
 
-Quick Start
------------
+Installation
+------------
 
 vcli is not officially released yet, but you can install the latest development
 version with pip::
 
-    $ pip install https://github.com/dbcli/vcli/archive/master.zip
+    pip install https://github.com/dbcli/vcli/archive/master.zip
 
 
 Usage
 -----
-
 ::
 
-    $ vcli [database_name]
+    Usage: vcli [OPTIONS] [DATABASE]
 
-    or
+    Options:
+      -h, --host TEXT        Database server host address  [default: localhost]
+      -p, --port INTEGER     Database server port  [default: 5433]
+      -U, --user TEXT        Database username  [default: eliang]
+      -W, --prompt-password  Prompt for password  [default: False]
+      -w, --password TEXT    Database password  [default: ]
+      -v, --version          Print version and exit
+      --vclirc TEXT          Location of .vclirc file  [default: ~/.vclirc]
+      --help                 Show this message and exit.
 
-    $ vcli vertica://[user[:password]@][netloc][:port][/dbname]
+Examples::
 
-Example:
+    # Use URL to connect
+    vcli vertica://dbadmin:pass@localhost:5433/mydb
 
-::
+    # Prompt for password
+    vcli -h localhost -U dbadmin -W -p 5433 mydb
 
-    $ vcli vertica://amjith:pa$$w0rd@example.com:5433/app_db
+    # Don't prompt for password
+    vcli -h localhost -U dbadmin -w pass -p 5433 mydb
+
+    # Use VERTICA_URL environment variable
+    VERTICA_URL=vertica://dbadmin:pass@localhost:5433/mydb vcli
 
 
 Thanks
@@ -41,3 +54,4 @@ weren't for them.
 
 
 .. _pgcli: http://pgcli.com
+.. _Vertica: http://www.vertica.com/
