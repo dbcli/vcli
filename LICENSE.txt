@@ -1,7 +1,7 @@
 pgcli License
 =============
 
-vcli is forked from pgcli by Amjith Ramanujam. Its license is as follows.
+vcli is based on pgcli by Amjith Ramanujam. Its license is as follows.
 
 Copyright (c) 2015, Amjith Ramanujam
 All rights reserved.
