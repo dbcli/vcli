@@ -1,16 +1,19 @@
-import pytest
+import getpass
+import os
 
+import pytest
 import vertica_python as vertica
 
 from vcli.main import format_output
-# from vcli.vexecute import register_json_typecasters
+
+from urlparse import urlparse
 
 
-# TODO: should this be somehow be divined from environment?
-VERTICA_USER = 'dbadmin'
-VERTICA_PASSWORD = 'pass'
-VERTICA_HOST = 'vertica.local'
-VERTICA_DATABASE = 'localdev'
+url = urlparse(os.getenv('VERTICA_URL'))
+VERTICA_USER = url.username or getpass.getuser()
+VERTICA_PASSWORD = url.password or ''
+VERTICA_HOST = url.hostname or 'localhost'
+VERTICA_DATABASE = url.path[1:]
 
 
 def db_connection():

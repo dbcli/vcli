@@ -6,6 +6,7 @@ This string is used to call the step in "*.feature" file.
 """
 from __future__ import unicode_literals
 
+import getpass
 import os
 
 import pexpect
@@ -42,16 +43,21 @@ def step_run_cli_with_url(context):
 def step_run_cli_with_args(context):
     url = urlparse(os.getenv('VERTICA_URL'))
     args = {
-        'host': url.hostname,
+        'host': url.hostname or 'localhost',
         'port': url.port or 5433,
-        'user': url.username,
-        'password': url.password,
+        'user': url.username or getpass.getuser(),
+        'password': url.password or '',
         'database': url.path[1:]
     }
-    cmd = 'vcli -h %(host)s -U %(user)s -W -p %(port)s %(database)s' % args
+    cmd = 'vcli -h %(host)s -U %(user)s -p %(port)s %(database)s' % args
+    if args['password']:
+        cmd += ' -W'
+
     context.cli = pexpect.spawnu(cmd)
-    context.cli.expect_exact('Password:')
-    context.cli.sendline(args['password'])
+
+    if args['password']:
+        context.cli.expect_exact('Password:')
+        context.cli.sendline(args['password'])
 
 
 @when('we run vcli help')

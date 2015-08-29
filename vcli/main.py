@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 from __future__ import print_function
-from __future__ import unicode_literals
 
+import getpass
 import logging
 import os
 import sys
@@ -10,42 +10,37 @@ import traceback
 import click
 import sqlparse
 
+import vcli.packages.vspecial as special
+
+from collections import namedtuple
 from time import time
+from urlparse import urlparse
 
 from prompt_toolkit import CommandLineInterface, Application, AbortAction
 from prompt_toolkit.document import Document
 from prompt_toolkit.enums import DEFAULT_BUFFER
 from prompt_toolkit.filters import Always, HasFocus, IsDone
 from prompt_toolkit.history import FileHistory
-from prompt_toolkit.shortcuts import create_default_layout, create_eventloop
 from prompt_toolkit.layout.processors import (
     ConditionalProcessor, HighlightMatchingBracketProcessor)
+from prompt_toolkit.shortcuts import create_default_layout, create_eventloop
 from pygments.lexers.sql import PostgresLexer
 from pygments.token import Token
 from vertica_python import errors
 
-from .packages.tabulate import tabulate
-from .packages.expanded import expanded_table
-from .packages.vspecial.main import (VSpecial, NO_QUERY)
-import vcli.packages.vspecial as special
-from .vcompleter import VCompleter
-from .vtoolbar import create_toolbar_tokens_func
-from .vstyle import style_factory
-from .vexecute import VExecute
-from .vbuffer import VBuffer
-from .config import write_default_config, load_config
-from .key_bindings import vcli_bindings
-from .encodingutils import utf8tounicode
 from .__init__ import __version__
+from .config import write_default_config, load_config
+from .encodingutils import utf8tounicode
+from .key_bindings import vcli_bindings
+from .packages.expanded import expanded_table
+from .packages.tabulate import tabulate
+from .packages.vspecial.main import (VSpecial, NO_QUERY)
+from .vbuffer import VBuffer
+from .vcompleter import VCompleter
+from .vexecute import VExecute
+from .vstyle import style_factory
+from .vtoolbar import create_toolbar_tokens_func
 
-
-try:
-    from urlparse import urlparse
-except ImportError:
-    from urllib.parse import urlparse
-from getpass import getuser
-
-from collections import namedtuple
 
 # Query tuples are used for maintaining history
 Query = namedtuple('Query', ['query', 'successful', 'mutating'])
@@ -53,11 +48,7 @@ Query = namedtuple('Query', ['query', 'successful', 'mutating'])
 
 class VCli(object):
 
-    def __init__(self, force_passwd_prompt=False, never_passwd_prompt=False,
-                 vexecute=None, vclirc_file=None):
-
-        self.force_passwd_prompt = force_passwd_prompt
-        self.never_passwd_prompt = never_passwd_prompt
+    def __init__(self, vexecute=None, vclirc_file=None):
         self.vexecute = vexecute
 
         from vcli import __file__ as package_root
@@ -140,63 +131,22 @@ class VCli(object):
     def connect_uri(self, uri):
         uri = urlparse(uri)
         database = uri.path[1:]  # ignore the leading fwd slash
-        self.connect(database, uri.hostname, uri.username,
-                     uri.port, uri.password)
+        host = uri.hostname or 'localhost'
+        user = uri.username or getpass.getuser()
+        port = uri.port or 5433
+        password = uri.password or ''
+        self.connect(database, host, user, port, password)
 
-    def connect(self, database='', host='', user='', port='', passwd=''):
-        # Connect to the database.
-
-        if not user:
-            user = getuser()
-
-        if not database:
-            database = user
-
-        if not port:
-            port = 5433
-
-        # If password prompt is not forced but no password is provided, try
-        # getting it from environment variable.
-        if not self.force_passwd_prompt and not passwd:
-            passwd = os.environ.get('VERTICA_PASSWORD', '')
-
-        # Prompt for a password immediately if requested via the -W flag. This
-        # avoids wasting time trying to connect to the database and catching a
-        # no-password exception.
-        # If we successfully parsed a password from a URI, there's no need to
-        # prompt for it, even with the -W flag
-        if self.force_passwd_prompt and not passwd:
-            passwd = click.prompt('Password', hide_input=True,
-                                  show_default=False, type=str)
-
-        # Prompt for a password after 1st attempt to connect without a password
-        # fails. Don't prompt if the -w flag is supplied
-        auto_passwd_prompt = not passwd and not self.never_passwd_prompt
-
-        # Attempt to connect to the database.
-        # Note that passwd may be empty on the first attempt. If connection
-        # fails because of a missing password, but we're allowed to prompt for
-        # a password (no -w flag), prompt for a passwd and try again.
+    def connect(self, database, host, user, port, passwd):
+        # Connect to the database
         try:
-            try:
-                vexecute = VExecute(database, user, passwd, host, port)
-            except errors.DatabaseError as e:
-                if ('no password supplied' in utf8tounicode(e.args[0]) and
-                        auto_passwd_prompt):
-                    passwd = click.prompt('Password', hide_input=True,
-                                          show_default=False, type=str)
-                    vexecute = VExecute(database, user, passwd, host, port)
-                else:
-                    raise e
-
-        except Exception as e:  # Connecting to a database could fail.
+            self.vexecute = VExecute(database, user, passwd, host, port)
+        except errors.DatabaseError as e:  # Connection can fail
             self.logger.debug('Database connection failed: %r.', e)
             self.logger.error("traceback: %r", traceback.format_exc())
-            click.secho(str(e), err=True, fg='red')
-            raise
+            error_msg = str(e) or type(e).__name__
+            click.secho(error_msg, err=True, fg='red')
             exit(1)
-
-        self.vexecute = vexecute
 
     def handle_editor_command(self, cli, document):
         """
@@ -438,49 +388,44 @@ class VCli(object):
 
 @click.command()
 # Default host is '' so psycopg2 can default to either localhost or unix socket
-@click.option('-h', '--host', default='', envvar='VERTICA_HOST',
-              help='Host address of the postgres database.')
-@click.option('-p', '--port', default=5433, help='Port number at which the '
-              'Vertica instance is listening.', envvar='VERTICA_PORT')
-@click.option('-U', '--user', envvar='VERTICA_USER', help='User name to '
-              'connect to the Vertica database.')
-@click.option('-W', '--password', 'prompt_passwd', is_flag=True, default=False,
-              help='Force password prompt.')
-@click.option('-w', '--no-password', 'never_prompt', is_flag=True,
-              default=False, help='Never prompt for password.')
-@click.option('-v', '--version', is_flag=True, help='Version of vcli.')
-@click.option('-d', '--dbname', default='', envvar='VERTICA_DATABASE',
-              help='database name to connect to.')
-@click.option('--vclirc', default='~/.vclirc', envvar='VCLIRC',
-              help='Location of .vclirc file.')
-@click.argument('database', default=lambda: None, envvar='VERTICA_DATABASE',
-                nargs=1)
-@click.argument('username', default=lambda: None, envvar='VERTICA_USER',
-                nargs=1)
-def cli(database, user, host, port, prompt_passwd, never_prompt, dbname,
-        username, version, vclirc):
-
+@click.option('-h', '--host', default='localhost', show_default=True,
+              help='Database server host address')
+@click.option('-p', '--port', default=5433, show_default=True, type=int,
+              help='Database server port')
+@click.option('-U', '--user', default=getpass.getuser(), show_default=True,
+              help='Database username')
+@click.option('-W', '--prompt-password', 'prompt_passwd', is_flag=True,
+              default=False, show_default=True, help='Prompt for password')
+@click.option('-w', '--password', default='', show_default=True,
+              help='Database password')
+@click.option('-v', '--version', is_flag=True, help='Print version and exit')
+@click.option('--vclirc', default='~/.vclirc', show_default=True,
+              help='Location of .vclirc file')
+@click.argument('database', nargs=1, default='')
+def cli(database, host, port, user, prompt_passwd, password, version, vclirc):
     if version:
-        print('Version:', __version__)
+        click.echo('Version: %s' % __version__)
         sys.exit(0)
 
-    vcli = VCli(prompt_passwd, never_prompt, vclirc_file=vclirc)
+    if prompt_passwd and not password:
+        password = click.prompt('Password', hide_input=True,
+                                show_default=False, type=str)
 
-    # Choose which ever one has a valid value.
-    database = database or dbname or os.getenv('VERTICA_URL', '')
-    user = username or user
+    vcli = VCli(vclirc_file=vclirc)
+
+    # Choose which ever one has a valid value
+    database = database or os.getenv('VERTICA_URL', '')
 
     if '://' in database:
         vcli.connect_uri(database)
     else:
-        vcli.connect(database, host, user, port)
+        vcli.connect(database, host, user, port, password)
 
     vcli.logger.debug('Launch Params: \n'
                       '\tdatabase: %r'
                       '\tuser: %r'
                       '\thost: %r'
                       '\tport: %r', database, user, host, port)
-
     vcli.run_cli()
 
 
