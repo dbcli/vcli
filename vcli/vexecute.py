@@ -288,6 +288,8 @@ def _execute_copy_from_local_sql(sql_tree, cursor):
     ] + sql_tree.tokens[i + 3:]
     new_sql = sql_tree.to_unicode()
 
+    cursor.flush_to_query_ready()
     with open(file_path, 'rb') as f:
         cursor.copy(new_sql, f)
-    cursor.close()
+
+    cursor.flush_to_query_ready()
