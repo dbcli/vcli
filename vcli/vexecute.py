@@ -6,6 +6,9 @@ import sqlparse
 
 import vertica_python as vertica
 
+from sqlparse.tokens import Token as _Token
+from sqlparse.sql import Token
+
 from .packages import vspecial as special
 from .encodingutils import PY2
 
@@ -158,7 +161,13 @@ class VExecute(object):
     def execute_normal_sql(self, split_sql):
         _logger.debug('Regular sql statement. sql: %r', split_sql)
         cur = self.conn.cursor()
-        cur.execute(split_sql)
+
+        tree = sqlparse.parse(split_sql)[0]
+        if _is_copy_from_local(tree):
+            _execute_copy_from_local_sql(tree, cur)
+        else:
+            cur.execute(split_sql)
+
         title = None
         statusmessage = None
         first_token = split_sql.split()[0].lower()
@@ -239,3 +248,46 @@ class VExecute(object):
             cur.execute(self.datatypes_query)
             for row in cur.iterate():
                 yield tuple(row)
+
+
+def _is_copy_from_local(sql_tree):
+    first_token = sql_tree.tokens[0]
+    if not (first_token.is_keyword and first_token.value.lower() == 'copy'):
+        return False
+
+    # Search for 'LOCAL' keyword
+    found = False
+    for i, token in enumerate(sql_tree.tokens):
+        if token.is_keyword and token.value.lower() == 'local':
+            found = True
+            break
+
+    if not found:
+        return False
+
+    # After 'LCOAL', there should be a whitespace then a file path
+    try:
+        token = sql_tree.tokens[i + 2]
+    except IndexError:
+        return False
+
+    return token.ttype is _Token.Literal.String.Single
+
+
+def _execute_copy_from_local_sql(sql_tree, cursor):
+    # Search for 'LOCAL' keyword
+    for i, token in enumerate(sql_tree.tokens):
+        if token.is_keyword and token.value.lower() == 'local':
+            break
+
+    file_path = sql_tree.tokens[i + 2].value.strip('\'"')
+
+    # Replace "LOCAL <file_path>" with "stdin"
+    sql_tree.tokens = sql_tree.tokens[0:i] + [
+        Token(_Token.Keyword, 'stdin')
+    ] + sql_tree.tokens[i + 3:]
+    new_sql = sql_tree.to_unicode()
+
+    with open(file_path, 'rb') as f:
+        cursor.copy(new_sql, f)
+    cursor.close()
