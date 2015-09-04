@@ -1,4 +1,7 @@
 # -*- coding: utf-8 -*-
+import os
+import tempfile
+
 import pytest
 
 from textwrap import dedent
@@ -166,3 +169,32 @@ def test_describe_special(executor, command, verbose, pattern):
     # but we can at least make sure they run without error
     sql = r'\{command}{verbose} {pattern}'.format(**locals())
     executor.run(sql)
+
+
+@dbtest
+def test_copy_from_local_csv(executor):
+    run(executor, """
+        create table vcli_test.people (
+            name varchar(50),
+            age integer)
+    """)
+
+    with tempfile.NamedTemporaryFile(delete=False) as f:
+        f.write('Alice,20\nBob,30\nCindy,40\n')
+
+    try:
+        run(executor, """
+            copy vcli_test.people from local '%s' delimiter ','
+        """ % f.name)
+    finally:
+        os.remove(f.name)
+
+    output = run(executor, "select * from vcli_test.people", join=True)
+    assert output == dedent("""\
+        +--------+-------+
+        | name   |   age |
+        |--------+-------|
+        | Alice  |    20 |
+        | Bob    |    30 |
+        | Cindy  |    40 |
+        +--------+-------+""")
