@@ -47,12 +47,13 @@ def drop_schema(conn):
 
 
 def run(executor, sql, join=False, expanded=False, vspecial=None,
-        aligned=True):
+        aligned=True, show_header=True):
     " Return string output for the sql to be run "
     result = []
     for title, rows, headers, status in executor.run(sql, vspecial):
         result.extend(format_output(title, rows, headers, status, 'psql',
-                                    expanded=expanded, aligned=aligned))
+                                    expanded=expanded, aligned=aligned,
+                                    show_header=show_header))
     if join:
         result = '\n'.join(result)
     return result
