@@ -46,12 +46,13 @@ def drop_schema(conn):
         cur.execute('DROP SCHEMA vcli_test CASCADE')
 
 
-def run(executor, sql, join=False, expanded=False, vspecial=None):
+def run(executor, sql, join=False, expanded=False, vspecial=None,
+        aligned=True):
     " Return string output for the sql to be run "
     result = []
     for title, rows, headers, status in executor.run(sql, vspecial):
         result.extend(format_output(title, rows, headers, status, 'psql',
-                                    expanded=expanded))
+                                    expanded=expanded, aligned=aligned))
     if join:
         result = '\n'.join(result)
     return result

@@ -1,4 +1,5 @@
 import logging
+
 from collections import namedtuple
 
 from . import export
@@ -32,9 +33,12 @@ class VSpecial(object):
 
         self.commands = self.default_commands.copy()
 
+        self.aligned = True
         self.timing_enabled = False
         self.expanded_output = False
 
+        self.register(self.toggle_align, '\\a', '\\a', 'Aligned or unaligned',
+                      arg_type=NO_QUERY)
         self.register(self.show_help, '\\?', '\\?', 'Show help',
                       arg_type=NO_QUERY)
         self.register(self.show_help, '\\h', '\\h', 'Show help',
@@ -69,6 +73,15 @@ class VSpecial(object):
             return special_cmd.handler(cur=cur, pattern=pattern, verbose=verbose)
         elif special_cmd.arg_type == RAW_QUERY:
             return special_cmd.handler(cur=cur, query=sql)
+
+    def toggle_align(self):
+        self.aligned = not self.aligned
+        message = 'Output format is '
+        if self.aligned:
+            message += 'aligned.'
+        else:
+            message += 'unaligned.'
+        return [(None, None, None, message)]
 
     def show_help(self):
         headers = ['Command', 'Description']
