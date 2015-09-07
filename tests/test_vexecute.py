@@ -30,7 +30,6 @@ def test_bools_are_treated_as_strings(executor):
     run(executor, 'create table vcli_test.test(a boolean)')
     run(executor, 'insert into vcli_test.test values(True)')
     output = run(executor, 'select * from vcli_test.test', join=True)
-    print output
     assert output == dedent("""\
         +------+
         | a    |
@@ -198,3 +197,24 @@ def test_copy_from_local_csv(executor):
         | Bob    |    30 |
         | Cindy  |    40 |
         +--------+-------+""")
+
+
+@dbtest
+def test_special_command_align_mode(executor, vspecial):
+    output = run(executor, "select 'Alice' as name, 20 as age",
+                 vspecial=vspecial, join=True)
+    assert output == dedent("""\
+        +--------+-------+
+        | name   |   age |
+        |--------+-------|
+        | Alice  |    20 |
+        +--------+-------+""")
+
+    output = run(executor, '\\a', vspecial=vspecial, join=True)
+    assert 'unaligned' in output
+
+    output = run(executor, "select 'Alice' as name, 20 as age",
+                 vspecial=vspecial, aligned=False, join=True)
+    assert output == dedent("""\
+        name|age
+        Alice|20""")

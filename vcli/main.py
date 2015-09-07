@@ -449,7 +449,7 @@ def format_output(title, cur, headers, status, table_format, expanded=False,
         else:
             if aligned:
                 numalign, stralign = 'decimal', 'left'
-                tablefmt = vtablefmt.vsv_aligned
+                tablefmt = table_format
             else:
                 numalign, stralign = None, None
                 tablefmt = vtablefmt.vsv_unaligned
