@@ -34,10 +34,13 @@ class VSpecial(object):
         self.commands = self.default_commands.copy()
 
         self.aligned = True
+        self.show_header = True
         self.timing_enabled = False
         self.expanded_output = False
 
         self.register(self.toggle_align, '\\a', '\\a', 'Aligned or unaligned',
+                      arg_type=NO_QUERY)
+        self.register(self.toggle_header, '\\t', '\\t', 'Toggle header',
                       arg_type=NO_QUERY)
         self.register(self.show_help, '\\?', '\\?', 'Show help',
                       arg_type=NO_QUERY)
@@ -81,6 +84,15 @@ class VSpecial(object):
             message += 'aligned.'
         else:
             message += 'unaligned.'
+        return [(None, None, None, message)]
+
+    def toggle_header(self):
+        self.show_header = not self.show_header
+        if self.show_header:
+            message = 'Showing '
+        else:
+            message = 'Hiding '
+        message += 'header.'
         return [(None, None, None, message)]
 
     def show_help(self):

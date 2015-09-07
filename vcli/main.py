@@ -278,7 +278,8 @@ class VCli(object):
                         formatted = format_output(title, cur, headers, status,
                                                   self.table_format,
                                                   self.vspecial.expanded_output,
-                                                  self.vspecial.aligned)
+                                                  self.vspecial.aligned,
+                                                  self.vspecial.show_header)
                         output.extend(formatted)
                         if hasattr(cur, 'rowcount'):
                             if cur.rowcount == 1:
@@ -432,7 +433,7 @@ def cli(database, host, port, user, prompt_passwd, password, version, vclirc):
 
 
 def format_output(title, cur, headers, status, table_format, expanded=False,
-                  aligned=True):
+                  aligned=True, show_header=True):
     output = []
     if title:  # Only print the title if it's not None.
         output.append(title)
@@ -453,6 +454,8 @@ def format_output(title, cur, headers, status, table_format, expanded=False,
             else:
                 numalign, stralign = None, None
                 tablefmt = vtablefmt.vsv_unaligned
+            if not show_header:
+                headers = []
             output.append(tabulate(rows, headers, numalign=numalign, stralign=stralign,
                                    tablefmt=tablefmt, missingval=''))
     if status:  # Only print the status if it's not None.

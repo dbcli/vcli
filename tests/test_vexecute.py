@@ -218,3 +218,24 @@ def test_special_command_align_mode(executor, vspecial):
     assert output == dedent("""\
         name|age
         Alice|20""")
+
+
+@dbtest
+def test_special_command_hide_header(executor, vspecial):
+    output = run(executor, "select 'Alice' as name, 20 as age",
+                 vspecial=vspecial, join=True)
+    assert output == dedent("""\
+        +--------+-------+
+        | name   |   age |
+        |--------+-------|
+        | Alice  |    20 |
+        +--------+-------+""")
+
+    output = run(executor, '\\t', vspecial=vspecial, join=True)
+    assert 'Hiding header' in output
+
+    output = run(executor, "select 'Alice' as name, 20 as age",
+                 vspecial=vspecial, aligned=False, show_header=False,
+                 join=True)
+    assert output == dedent("""\
+        Alice|20""")
