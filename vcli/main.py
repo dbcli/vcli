@@ -32,6 +32,7 @@ from .__init__ import __version__
 from .config import write_default_config, load_config
 from .encodingutils import utf8tounicode
 from .key_bindings import vcli_bindings
+from .packages import vtablefmt
 from .packages.expanded import expanded_table
 from .packages.tabulate import tabulate
 from .packages.vspecial.main import (VSpecial, NO_QUERY)
@@ -276,7 +277,8 @@ class VCli(object):
 
                         formatted = format_output(title, cur, headers, status,
                                                   self.table_format,
-                                                  self.vspecial.expanded_output)
+                                                  self.vspecial.expanded_output,
+                                                  self.vspecial.aligned)
                         output.extend(formatted)
                         if hasattr(cur, 'rowcount'):
                             if cur.rowcount == 1:
@@ -429,7 +431,8 @@ def cli(database, host, port, user, prompt_passwd, password, version, vclirc):
     vcli.run_cli()
 
 
-def format_output(title, cur, headers, status, table_format, expanded=False):
+def format_output(title, cur, headers, status, table_format, expanded=False,
+                  aligned=True):
     output = []
     if title:  # Only print the title if it's not None.
         output.append(title)
@@ -444,8 +447,14 @@ def format_output(title, cur, headers, status, table_format, expanded=False):
         if expanded:
             output.append(expanded_table(rows, headers))
         else:
-            output.append(tabulate(rows, headers,
-                                   tablefmt=table_format, missingval='<null>'))
+            if aligned:
+                numalign, stralign = 'decimal', 'left'
+                tablefmt = vtablefmt.vsv_aligned
+            else:
+                numalign, stralign = None, None
+                tablefmt = vtablefmt.vsv_unaligned
+            output.append(tabulate(rows, headers, numalign=numalign, stralign=stralign,
+                                   tablefmt=tablefmt, missingval=''))
     if status:  # Only print the status if it's not None.
         output.append(status)
     return output
