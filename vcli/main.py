@@ -17,9 +17,11 @@ from time import time
 from urlparse import urlparse
 
 from prompt_toolkit import CommandLineInterface, Application, AbortAction
+from prompt_toolkit.buffer import AcceptAction
 from prompt_toolkit.document import Document
 from prompt_toolkit.enums import DEFAULT_BUFFER
 from prompt_toolkit.filters import Always, HasFocus, IsDone
+from prompt_toolkit.layout.lexers import PygmentsLexer
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.processors import (
     ConditionalProcessor, HighlightMatchingBracketProcessor)
@@ -203,7 +205,7 @@ class VCli(object):
                 filter=HasFocus(DEFAULT_BUFFER) & ~IsDone())
         ]
         layout = create_default_layout(
-            lexer=PostgresLexer,
+            lexer=PygmentsLexer(PostgresLexer),
             reserve_space_for_menu=True,
             get_prompt_tokens=prompt_tokens,
             get_bottom_toolbar_tokens=get_toolbar_tokens,
@@ -213,13 +215,15 @@ class VCli(object):
         history_file = self.config['main']['history_file']
         buf = VBuffer(always_multiline=self.multi_line, completer=completer,
                       history=FileHistory(os.path.expanduser(history_file)),
-                      complete_while_typing=Always())
+                      complete_while_typing=Always(),
+                      accept_action=AcceptAction.RETURN_DOCUMENT)
 
         style = style_factory(self.syntax_style, self.cli_style)
         application = Application(
             style=style, layout=layout, buffer=buf,
             key_bindings_registry=key_binding_manager.registry,
-            on_exit=AbortAction.RAISE_EXCEPTION, ignore_case=True)
+            on_exit=AbortAction.RAISE_EXCEPTION, on_abort=AbortAction.RETRY,
+            mouse_support=True, ignore_case=True)
         cli = CommandLineInterface(application=application,
                                    eventloop=create_eventloop())
 
