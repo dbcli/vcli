@@ -223,7 +223,7 @@ class VCli(object):
             style=style, layout=layout, buffer=buf,
             key_bindings_registry=key_binding_manager.registry,
             on_exit=AbortAction.RAISE_EXCEPTION, on_abort=AbortAction.RETRY,
-            mouse_support=True, ignore_case=True)
+            mouse_support=False, ignore_case=True)
         cli = CommandLineInterface(application=application,
                                    eventloop=create_eventloop())
 
