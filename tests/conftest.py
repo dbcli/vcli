@@ -7,11 +7,10 @@ import vcli.vexecute
 @pytest.yield_fixture(scope="function")
 def connection():
     utils.create_schema()
-    connection = utils.db_connection()
-    yield connection
 
-    utils.drop_schema(connection)
-    connection.close()
+    with utils.db_connection() as connection:
+        yield connection
+        utils.drop_schema(connection)
 
 
 @pytest.fixture
