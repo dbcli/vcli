@@ -130,6 +130,7 @@ def step_create_table(context):
     Send create table.
     """
     context.cli.sendline('create table vcli_test.people(name varchar(30));')
+    context.cli.expect('{0}=> '.format(context.conf['dbname']), timeout=2)
 
 
 @when('we insert into table')

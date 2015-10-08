@@ -37,8 +37,9 @@ dbtest = pytest.mark.skipif(
 
 
 def create_schema():
-    with db_connection().cursor() as cur:
-        cur.execute('CREATE SCHEMA vcli_test')
+    with db_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute('CREATE SCHEMA vcli_test')
 
 
 def drop_schema(conn):

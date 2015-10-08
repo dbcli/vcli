@@ -5,8 +5,6 @@ from __future__ import print_function
 import getpass
 import os
 
-import pexpect
-
 import db_utils as dbutils
 import fixture_utils as fixutils
 
@@ -50,6 +48,5 @@ def after_scenario(context, _):
     if hasattr(context, 'cli') and not context.exit_sent:
         context.cli.sendline('DROP SCHEMA IF EXISTS vcli_test CASCADE;')
 
-        # Send Ctrl + D into cli
-        context.cli.sendcontrol('d')
-        context.cli.expect(pexpect.EOF, timeout=2)
+        # Terminate nicely
+        context.cli.terminate()
