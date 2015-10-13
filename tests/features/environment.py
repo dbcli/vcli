@@ -44,9 +44,14 @@ def after_scenario(context, _):
     """
     Cleans up after each test complete.
     """
-
     if hasattr(context, 'cli') and not context.exit_sent:
         context.cli.sendline('DROP SCHEMA IF EXISTS vcli_test CASCADE;')
+        context.cli.expect_exact('Refreshing completions', timeout=1)
+        context.cli.expect_exact('%s=>' % context.conf['dbname'], timeout=2)
 
         # Terminate nicely
         context.cli.terminate()
+
+    if hasattr(context, 'temp_filename'):
+        if os.path.exists(context.temp_filename):
+            os.remove(context.temp_filename)

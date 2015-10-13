@@ -100,7 +100,7 @@ class VCli(object):
             self.vexecute.connect()
 
         yield (None, None, None, 'You are now connected to database "%s" as '
-               'user "%s"' % (self.vexecute.dbname, self.vexecute.user))
+               'user "%s"' % (self.vexecute.dbname, self.vexecute.user), True)
 
     def initialize_logging(self):
 
@@ -259,9 +259,12 @@ class VCli(object):
                     res = vexecute.run(document.text, self.vspecial)
                     duration = time() - start
                     successful = True
-                    output = []
+
+                    file_output = []
+                    stdout_output = []
+
                     total = 0
-                    for title, cur, headers, status in res:
+                    for title, cur, headers, status, force_stdout in res:
                         logger.debug("headers: %r", headers)
                         logger.debug("rows: %r", cur)
                         logger.debug("status: %r", status)
@@ -280,14 +283,22 @@ class VCli(object):
                                                   self.vspecial.expanded_output,
                                                   self.vspecial.aligned,
                                                   self.vspecial.show_header)
+
+                        if force_stdout or self.vspecial.output is sys.stdout:
+                            output = stdout_output
+                        else:
+                            output = file_output
+
                         output.extend(formatted)
+
                         if hasattr(cur, 'rowcount'):
-                            if cur.rowcount == 1:
-                                output.append('(1 row)')
-                            elif headers:
-                                output.append('(%d rows)' % cur.rowcount)
+                            if self.vspecial.show_header:
+                                if cur.rowcount == 1:
+                                    output.append('(1 row)')
+                                elif headers:
+                                    output.append('(%d rows)' % cur.rowcount)
                             if document.text.startswith('\\') and cur.rowcount == 0:
-                                output = ['No matching relations found.']
+                                stdout_output = ['No matching relations found.']
                         end = time()
                         total += end - start
                         mutating = mutating or is_mutating(status)
@@ -319,9 +330,19 @@ class VCli(object):
                     logger.error("traceback: %r", traceback.format_exc())
                     click.secho(str(e), err=True, fg='red')
                 else:
-                    if output:
+                    if stdout_output:
+                        output = '\n'.join(stdout_output)
                         try:
-                            click.echo_via_pager('\n'.join(output))
+                            click.echo_via_pager(output)
+                        except KeyboardInterrupt:
+                            pass
+
+                    if file_output:
+                        assert self.vspecial.output is not sys.stdout
+                        output = '\n'.join(file_output)
+                        try:
+                            self.vspecial.output.write(output)
+                            self.vspecial.output.flush()
                         except KeyboardInterrupt:
                             pass
                     if self.vspecial.timing_enabled:
@@ -382,7 +403,7 @@ class VCli(object):
         # databases
         completer.extend_database_names(vexecute.databases())
 
-        return [(None, None, None, 'Auto-completions refreshed.')]
+        return [(None, None, None, 'Auto-completions refreshed.', True)]
 
     def get_completions(self, text, cursor_positition):
         return self.completer.get_completions(

@@ -133,12 +133,13 @@ class VExecute(object):
 
         :param statement: A string containing one or more sql statements
         :param vspecial: VSpecial object
-        :return: List of tuples containing (title, rows, headers, status)
+        :return: List of tuples containing (title, rows, headers, status,
+                                            force_stdout)
         """
         # Remove spaces and EOL
         statement = statement.strip()
         if not statement:  # Empty string
-            yield (None, None, None, None)
+            yield (None, None, None, None, True)
 
         # Split the sql into separate queries and run each one.
         for sql in sqlparse.split(statement):
@@ -174,10 +175,10 @@ class VExecute(object):
         if cur.description and first_token in ('select', 'update', 'delete',
                                                'insert'):
             headers = [x[0] for x in cur.description]
-            return (title, cur, headers, statusmessage)
+            return (title, cur, headers, statusmessage, False)
         else:
             _logger.debug('No rows in result.')
-            return (title, None, None, statusmessage)
+            return (title, None, None, statusmessage, True)
 
     def search_path(self):
         """Returns the current search path as a list of schema names"""

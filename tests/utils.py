@@ -51,7 +51,7 @@ def run(executor, sql, join=False, expanded=False, vspecial=None,
         aligned=True, show_header=True):
     " Return string output for the sql to be run "
     result = []
-    for title, rows, headers, status in executor.run(sql, vspecial):
+    for title, rows, headers, status, force_stdout in executor.run(sql, vspecial):
         result.extend(format_output(title, rows, headers, status, 'psql',
                                     expanded=expanded, aligned=aligned,
                                     show_header=show_header))

@@ -35,7 +35,7 @@ def list_objects(cur, pattern, verbose, columns, table_name,
     cur.execute(sql)
 
     headers = [x[0] for x in cur.description]
-    return [(title, cur, headers, None)]
+    return [(title, cur, headers, None, False)]
 
 
 @special_command('\\d', '\\d [PATTERN]', 'List or describe tables')
@@ -55,7 +55,7 @@ def describe_table_details(cur, pattern, verbose):
         cur.execute(sql)
         if cur.description:
             headers = [x[0] for x in cur.description]
-            return [(None, cur, headers, None)]
+            return [(None, cur, headers, None, False)]
 
     # This is a \d <tablename> command. A royal pain in the ass.
     schema, relname = sql_name_pattern(pattern)
@@ -86,7 +86,7 @@ def describe_table_details(cur, pattern, verbose):
     cur.execute(sql)
 
     headers = [x[0] for x in cur.description]
-    return [(None, cur, headers, None)]
+    return [(None, cur, headers, None, False)]
 
 
 @special_command('\\df', '\\df [PATTERN]', 'List functions')
@@ -223,7 +223,7 @@ def list_tables_and_views(cur, pattern, verbose):
 
     if cur.description:
         headers = [x[0] for x in cur.description]
-        return [(None, cur, headers, None)]
+        return [(None, cur, headers, None, False)]
     return None
 
 
