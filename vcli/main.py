@@ -100,7 +100,7 @@ class VCli(object):
             self.vexecute.connect()
 
         yield (None, None, None, 'You are now connected to database "%s" as '
-               'user "%s"' % (self.vexecute.dbname, self.vexecute.user))
+               'user "%s"' % (self.vexecute.dbname, self.vexecute.user), True)
 
     def initialize_logging(self):
 
@@ -259,9 +259,12 @@ class VCli(object):
                     res = vexecute.run(document.text, self.vspecial)
                     duration = time() - start
                     successful = True
-                    output = []
+
+                    file_output = None
+                    stdout_output = []
+
                     total = 0
-                    for title, cur, headers, status in res:
+                    for title, cur, headers, status, force_stdout in res:
                         logger.debug("headers: %r", headers)
                         logger.debug("rows: %r", cur)
                         logger.debug("status: %r", status)
@@ -280,14 +283,25 @@ class VCli(object):
                                                   self.vspecial.expanded_output,
                                                   self.vspecial.aligned,
                                                   self.vspecial.show_header)
-                        output.extend(formatted)
+
+                        if self.vspecial.output is not sys.stdout:
+                            file_output = self.vspecial.output
+
+                        if force_stdout or not file_output:
+                            output = stdout_output
+                        else:
+                            output = file_output
+
+                        write_output(output, formatted)
+
                         if hasattr(cur, 'rowcount'):
-                            if cur.rowcount == 1:
-                                output.append('(1 row)')
-                            elif headers:
-                                output.append('(%d rows)' % cur.rowcount)
+                            if self.vspecial.show_header:
+                                if cur.rowcount == 1:
+                                    write_output(output, '(1 row)')
+                                elif headers:
+                                    write_output(output, '(%d rows)' % cur.rowcount)
                             if document.text.startswith('\\') and cur.rowcount == 0:
-                                output = ['No matching relations found.']
+                                stdout_output = ['No matching relations found.']
                         end = time()
                         total += end - start
                         mutating = mutating or is_mutating(status)
@@ -319,9 +333,16 @@ class VCli(object):
                     logger.error("traceback: %r", traceback.format_exc())
                     click.secho(str(e), err=True, fg='red')
                 else:
-                    if output:
+                    if stdout_output:
+                        output = '\n'.join(stdout_output)
                         try:
-                            click.echo_via_pager('\n'.join(output))
+                            click.echo_via_pager(output)
+                        except KeyboardInterrupt:
+                            pass
+
+                    if file_output:
+                        try:
+                            file_output.flush()
                         except KeyboardInterrupt:
                             pass
                     if self.vspecial.timing_enabled:
@@ -382,7 +403,7 @@ class VCli(object):
         # databases
         completer.extend_database_names(vexecute.databases())
 
-        return [(None, None, None, 'Auto-completions refreshed.')]
+        return [(None, None, None, 'Auto-completions refreshed.', True)]
 
     def get_completions(self, text, cursor_positition):
         return self.completer.get_completions(
@@ -502,6 +523,22 @@ def quit_command(sql):
             or sql.strip().lower() == 'quit'
             or sql.strip() == '\q'
             or sql.strip() == ':q')
+
+
+def write_output(out, content):
+    if hasattr(out, 'write'):  # out is a file object
+        if isinstance(content, basestring):
+            out.write(content + '\n')
+        else:
+            out.write('\n'.join(content) + '\n')
+    elif isinstance(out, list):
+        if isinstance(content, basestring):
+            out.append(content)
+        else:  # Assume content is a list
+            out.extend(content)
+    else:
+        raise TypeError("unsupported output type '%s'" % type(out).__name__)
+
 
 if __name__ == "__main__":
     cli()

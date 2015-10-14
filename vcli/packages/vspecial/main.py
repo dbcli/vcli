@@ -1,4 +1,7 @@
+import codecs
 import logging
+import os
+import sys
 
 from collections import namedtuple
 
@@ -35,6 +38,7 @@ class VSpecial(object):
 
         self.aligned = True
         self.show_header = True
+        self.output = sys.stdout
         self.timing_enabled = False
         self.expanded_output = False
 
@@ -42,6 +46,8 @@ class VSpecial(object):
                       arg_type=NO_QUERY)
         self.register(self.toggle_header, '\\t', '\\t', 'Toggle header',
                       arg_type=NO_QUERY)
+        self.register(self.redirect_output, '\\o', '\\o [FILE]',
+                      'Output to file or stdout', arg_type=PARSED_QUERY)
         self.register(self.show_help, '\\?', '\\?', 'Show help',
                       arg_type=NO_QUERY)
         self.register(self.show_help, '\\h', '\\h', 'Show help',
@@ -84,7 +90,7 @@ class VSpecial(object):
             message += 'aligned.'
         else:
             message += 'unaligned.'
-        return [(None, None, None, message)]
+        return [(None, None, None, message, True)]
 
     def toggle_header(self):
         self.show_header = not self.show_header
@@ -93,7 +99,20 @@ class VSpecial(object):
         else:
             message = 'Hiding '
         message += 'header.'
-        return [(None, None, None, message)]
+        return [(None, None, None, message, True)]
+
+    def redirect_output(self, cur=None, pattern=None, verbose=None):
+        if os.path.isfile(self.output.name):
+            # Close previous output file
+            self.output.close()
+        if pattern:
+            filename = os.path.abspath(pattern)
+            self.output = codecs.open(filename, 'w', encoding='utf-8')
+            message = 'Redirecting output to file.'
+        else:
+            self.output = sys.stdout
+            message = 'Redirecting output to stdout.'
+        return [(None, None, None, message, True)]
 
     def show_help(self):
         headers = ['Command', 'Description']
@@ -104,19 +123,19 @@ class VSpecial(object):
             if not value.hidden:
                 result.append((value.syntax, value.description))
         result = sorted(result)
-        return [(None, result, headers, None)]
+        return [(None, result, headers, None, True)]
 
     def toggle_expanded_output(self):
         self.expanded_output = not self.expanded_output
         message = u"Expanded display is "
         message += u"on." if self.expanded_output else u"off."
-        return [(None, None, None, message)]
+        return [(None, None, None, message, True)]
 
     def toggle_timing(self):
         self.timing_enabled = not self.timing_enabled
         message = "Timing is "
         message += "on." if self.timing_enabled else "off."
-        return [(None, None, None, message)]
+        return [(None, None, None, message, True)]
 
 
 @export
