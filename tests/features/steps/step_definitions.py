@@ -319,8 +319,8 @@ def step_see_data_deleted(context):
 @then('we see result in file')
 def step_see_result_in_file(context):
     assert os.path.exists(context.temp_filename)
-    with open(context.temp_filename) as f:
-        content = f.read()
+    with codecs.open(context.temp_filename, encoding='utf-8') as f:
+        content = f.read().strip()
     assert content == 'Bob', "'%s' != 'Bob'" % content
 
 
@@ -354,8 +354,8 @@ def step_select_unicode(context):
 def step_see_unicode_in_file(context):
     assert os.path.exists(context.temp_filename)
     with codecs.open(context.temp_filename, encoding='utf-8') as f:
-        content = f.read()
-    assert content == '中文', "'%s' != '中文'" % content
+        content = f.read().strip()
+    assert content == u'中文', u"'%s' != '中文'" % content
 
 
 def _strip_color(s):

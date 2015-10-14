@@ -42,7 +42,6 @@ Feature: manipulate tables:
       and we select from table
       then we see result in stdout
 
-  @wip
   Scenario: redirect unicode output to file
      Given we have vcli installed
       when we run vcli without arguments

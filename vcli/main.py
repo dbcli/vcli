@@ -260,7 +260,7 @@ class VCli(object):
                     duration = time() - start
                     successful = True
 
-                    file_output = []
+                    file_output = None
                     stdout_output = []
 
                     total = 0
@@ -284,19 +284,22 @@ class VCli(object):
                                                   self.vspecial.aligned,
                                                   self.vspecial.show_header)
 
-                        if force_stdout or self.vspecial.output is sys.stdout:
+                        if self.vspecial.output is not sys.stdout:
+                            file_output = self.vspecial.output
+
+                        if force_stdout or not file_output:
                             output = stdout_output
                         else:
                             output = file_output
 
-                        output.extend(formatted)
+                        write_output(output, formatted)
 
                         if hasattr(cur, 'rowcount'):
                             if self.vspecial.show_header:
                                 if cur.rowcount == 1:
-                                    output.append('(1 row)')
+                                    write_output(output, '(1 row)')
                                 elif headers:
-                                    output.append('(%d rows)' % cur.rowcount)
+                                    write_output(output, '(%d rows)' % cur.rowcount)
                             if document.text.startswith('\\') and cur.rowcount == 0:
                                 stdout_output = ['No matching relations found.']
                         end = time()
@@ -338,11 +341,8 @@ class VCli(object):
                             pass
 
                     if file_output:
-                        assert self.vspecial.output is not sys.stdout
-                        output = '\n'.join(file_output)
                         try:
-                            self.vspecial.output.write(output)
-                            self.vspecial.output.flush()
+                            file_output.flush()
                         except KeyboardInterrupt:
                             pass
                     if self.vspecial.timing_enabled:
@@ -523,6 +523,22 @@ def quit_command(sql):
             or sql.strip().lower() == 'quit'
             or sql.strip() == '\q'
             or sql.strip() == ':q')
+
+
+def write_output(out, content):
+    if hasattr(out, 'write'):  # out is a file object
+        if isinstance(content, basestring):
+            out.write(content + '\n')
+        else:
+            out.write('\n'.join(content) + '\n')
+    elif isinstance(out, list):
+        if isinstance(content, basestring):
+            out.append(content)
+        else:  # Assume content is a list
+            out.extend(content)
+    else:
+        raise TypeError("unsupported output type '%s'" % type(out).__name__)
+
 
 if __name__ == "__main__":
     cli()
