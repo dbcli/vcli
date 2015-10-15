@@ -78,7 +78,7 @@ def describe_table_details(cur, pattern, verbose):
             USING (table_schema, table_name, column_name)"""
     if where:
         sql += 'WHERE ' + ' AND '.join(where)
-    sql += ' ORDER BY 1, 2, c.column_id'
+    sql += ' ORDER BY 1, 2, c.ordinal_position'
 
     # Execute the sql, get the results and call describe_one_table_details on each table.
 
