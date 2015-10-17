@@ -1,6 +1,8 @@
 vcli: A REPL for Vertica
 ========================
 
+|Build Status|
+
 A Vertica_ client that does auto-completion and syntax highlighting, based on
 pgcli_.
 
@@ -52,6 +54,9 @@ Thanks to pgcli_. Most of the hard work, especially the auto-completion part,
 were already done well by the pgcli core team. vcli wouldn't be possible if it
 weren't for them.
 
+
+.. |Build Status| image:: https://api.travis-ci.org/dbcli/vcli.svg?branch=master
+    :target: https://travis-ci.org/dbcli/vcli
 
 .. _pgcli: http://pgcli.com
 .. _Vertica: http://www.vertica.com/
