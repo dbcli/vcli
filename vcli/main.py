@@ -5,6 +5,7 @@ import getpass
 import logging
 import os
 import sys
+import threading
 import traceback
 
 import click
@@ -37,6 +38,7 @@ from .packages.expanded import expanded_table
 from .packages.tabulate import tabulate
 from .packages.vspecial.main import (VSpecial, NO_QUERY)
 from .vbuffer import VBuffer
+from .completion_refresher import CompletionRefresher
 from .vcompleter import VCompleter
 from .vexecute import VExecute
 from .vstyle import style_factory
@@ -69,6 +71,7 @@ class VCli(object):
         self.syntax_style = c['main']['syntax_style']
         self.cli_style = c['colors']
         self.wider_completion_menu = c['main'].as_bool('wider_completion_menu')
+        self.completion_refresher = CompletionRefresher()
 
         self.logger = logging.getLogger(__name__)
         self.initialize_logging()
@@ -79,7 +82,10 @@ class VCli(object):
         smart_completion = c['main'].as_bool('smart_completion')
         completer = VCompleter(smart_completion, vspecial=self.vspecial)
         self.completer = completer
+        self._completer_lock = threading.Lock()
         self.register_special_commands()
+
+        self.cli = None
 
     def register_special_commands(self):
         self.vspecial.register(self.change_db, '\\c',
@@ -195,7 +201,8 @@ class VCli(object):
         def prompt_tokens(cli):
             return [(Token.Prompt, '%s=> ' % vexecute.dbname)]
 
-        get_toolbar_tokens = create_toolbar_tokens_func(lambda: self.vi_mode)
+        get_toolbar_tokens = create_toolbar_tokens_func(lambda: self.vi_mode,
+                                                        lambda: self.completion_refresher.is_refreshing())
         input_processors = [
             # Highlight matching brackets while editing.
             ConditionalProcessor(
@@ -211,21 +218,22 @@ class VCli(object):
             multiline=True,
             extra_input_processors=input_processors)
         history_file = self.config['main']['history_file']
-        buf = VBuffer(always_multiline=self.multi_line, completer=completer,
-                      history=FileHistory(os.path.expanduser(history_file)),
-                      complete_while_typing=Always())
+        with self._completer_lock:
+            buf = VBuffer(always_multiline=self.multi_line, completer=self.completer,
+                          history=FileHistory(os.path.expanduser(history_file)),
+                          complete_while_typing=Always())
 
-        style = style_factory(self.syntax_style, self.cli_style)
-        application = Application(
-            style=style, layout=layout, buffer=buf,
-            key_bindings_registry=key_binding_manager.registry,
-            on_exit=AbortAction.RAISE_EXCEPTION, ignore_case=True)
-        cli = CommandLineInterface(application=application,
-                                   eventloop=create_eventloop())
+            application = Application(style=style_factory(self.syntax_style, self.cli_style),
+                                      layout=layout, buffer=buf,
+                                      key_bindings_registry=key_binding_manager.registry,
+                                      on_exit=AbortAction.RAISE_EXCEPTION,
+                                      ignore_case=True)
+            self.cli = CommandLineInterface(application=application,
+                                            eventloop=create_eventloop())
 
         try:
             while True:
-                document = cli.run()
+                document = self.cli.run()
 
                 # The reason we check here instead of inside the vexecute is
                 # because we want to raise the Exit exception which will be
@@ -235,7 +243,7 @@ class VCli(object):
                     raise EOFError
 
                 try:
-                    document = self.handle_editor_command(cli, document)
+                    document = self.handle_editor_command(self.cli, document)
                 except RuntimeError as e:
                     logger.error("sql: %r, error: %r", document.text, e)
                     logger.error("traceback: %r", traceback.format_exc())
@@ -355,8 +363,9 @@ class VCli(object):
                 # Refresh search_path to set default schema.
                 if need_search_path_refresh(document.text):
                     logger.debug('Refreshing search path')
-                    completer.set_search_path(vexecute.search_path())
-                    logger.debug('Search path: %r', completer.search_path)
+                    with self._completer_lock:
+                        self.completer.set_search_path(pgexecute.search_path())
+                    logger.debug('Search path: %r', self.completer.search_path)
 
                 query = Query(document.text, successful, mutating)
                 self.query_history.append(query)
@@ -375,39 +384,34 @@ class VCli(object):
         return less_opts
 
     def refresh_completions(self):
-        print('Refreshing completions')
+        self.completion_refresher.refresh(self.vexecute, self.vspecial,
+                                          self._on_completions_refreshed)
+        return [(None, None, None,
+                'Auto-completion refresh started in the background.', True)]
 
-        completer = self.completer
-        completer.reset_completions()
+    def _on_completions_refreshed(self, new_completer):
+        self._swap_completer_objects(new_completer)
 
-        vexecute = self.vexecute
+        if self.cli:
+            # After refreshing, redraw the CLI to clear the statusbar
+            # "Refreshing completions..." indicator
+            self.cli.request_redraw()
 
-        # schemata
-        completer.set_search_path(vexecute.search_path())
-        completer.extend_schemata(vexecute.schemata())
-
-        # tables
-        completer.extend_relations(vexecute.tables(), kind='tables')
-        completer.extend_columns(vexecute.table_columns(), kind='tables')
-
-        # views
-        completer.extend_relations(vexecute.views(), kind='views')
-        completer.extend_columns(vexecute.view_columns(), kind='views')
-
-        # functions
-        completer.extend_functions(vexecute.functions())
-
-        # types
-        completer.extend_datatypes(vexecute.datatypes())
-
-        # databases
-        completer.extend_database_names(vexecute.databases())
-
-        return [(None, None, None, 'Auto-completions refreshed.', True)]
+    def _swap_completer_objects(self, new_completer):
+        """Swap the completer object in cli with the newly created completer.
+        """
+        with self._completer_lock:
+            self.completer = new_completer
+            # When pgcli is first launched we call refresh_completions before
+            # instantiating the cli object. So it is necessary to check if cli
+            # exists before trying the replace the completer object in cli.
+            if self.cli:
+                self.cli.current_buffer.completer = new_completer
 
     def get_completions(self, text, cursor_positition):
-        return self.completer.get_completions(
-            Document(text=text, cursor_position=cursor_positition), None)
+        with self._completer_lock:
+            return self.completer.get_completions(
+                Document(text=text, cursor_position=cursor_positition), None)
 
 
 @click.command()
