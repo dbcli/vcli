@@ -220,6 +220,14 @@ def step_select_table(context):
     context.cli.sendline('select * from vcli_test.people;')
 
 
+@when('we refresh completions')
+def step_refresh_completions(context):
+    """
+    Send refresh command.
+    """
+    context.cli.sendline('\\refresh')
+
+
 @then('vcli exits')
 def step_wait_exit(context):
     """
@@ -356,6 +364,14 @@ def step_see_unicode_in_file(context):
     with codecs.open(context.temp_filename, encoding='utf-8') as f:
         content = f.read().strip()
     assert content == u'中文', u"'%s' != '中文'" % content
+
+
+@then('we see completions refresh started')
+def step_see_refresh_started(context):
+    """
+    Wait to see refresh output.
+    """
+    _expect_exact(context, 'refresh started in the background', timeout=2)
 
 
 def _strip_color(s):

@@ -46,7 +46,6 @@ def after_scenario(context, _):
     """
     if hasattr(context, 'cli') and not context.exit_sent:
         context.cli.sendline('DROP SCHEMA IF EXISTS vcli_test CASCADE;')
-        context.cli.expect_exact('Refreshing completions', timeout=1)
         context.cli.expect_exact('%s=>' % context.conf['dbname'], timeout=2)
 
         # Terminate nicely
