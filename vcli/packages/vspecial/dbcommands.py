@@ -252,16 +252,30 @@ def list_users(cur, pattern, verbose):
 
 @special_command('\\dv', '\\dv [PATTERN]', 'List views')
 def list_views(cur, pattern, verbose):
-    columns = [
-        ('table_schema', 'Schema'),
-        ('table_name', 'Name'),
-        ("'view'", 'Kind'),
-        ('owner_name', 'Owner')
-    ]
-    order_by = ['table_schema', 'table_name']
+    if pattern:
+        table = 'v_catalog.view_columns'
+        object_column = 'table_name'
+        columns = [
+            ('table_schema', 'Schema'),
+            ('table_name', 'View'),
+            ('column_name', 'Column'),
+            ('data_type', 'Type'),
+            ('data_type_length', 'Size')
+        ]
+        order_by = ['table_schema', 'table_name', 'ordinal_position']
+    else:
+        table = 'v_catalog.views'
+        object_column = 'column_name'
+        columns = [
+            ('table_schema', 'Schema'),
+            ('table_name', 'Name'),
+            ("'view'", 'Kind'),
+            ('owner_name', 'Owner')
+        ]
+        order_by = ['table_schema', 'table_name']
     return list_objects(
-        cur, pattern, verbose, columns, 'v_catalog.views',
-        schema_column='table_schema', object_column='table_name',
+        cur, pattern, verbose, columns, table,
+        schema_column='table_schema', object_column=object_column,
         order_by=order_by)
 
 
