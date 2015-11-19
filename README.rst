@@ -10,10 +10,9 @@ pgcli_.
 Installation
 ------------
 
-vcli is not officially released yet, but you can install the latest development
-version with pip::
+Just install it like a regular Python package::
 
-    pip install https://github.com/dbcli/vcli/archive/master.zip
+    pip install vcli
 
 
 Usage
