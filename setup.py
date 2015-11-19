@@ -28,13 +28,14 @@ setup(
         'prompt_toolkit==0.46',
         'Pygments >= 2.0',  # Pygments has to be Capitalcased. WTF?
         'sqlparse == 0.1.16',
-        'vertica-python==0.5.1'
+        'vertica-python==0.5.2'
     ],
     entry_points='''
         [console_scripts]
         vcli=vcli.main:cli
     ''',
     classifiers=[
+        'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',
         'License :: OSI Approved :: BSD License',
         'Operating System :: Unix',
