@@ -1,7 +1,7 @@
 vcli: A REPL for Vertica
 ========================
 
-|Build Status|
+|Build Status| |PyPI|
 
 A Vertica_ client that does auto-completion and syntax highlighting, based on
 pgcli_.
@@ -56,6 +56,10 @@ weren't for them.
 
 .. |Build Status| image:: https://api.travis-ci.org/dbcli/vcli.svg?branch=master
     :target: https://travis-ci.org/dbcli/vcli
+
+.. |PyPI| image:: https://img.shields.io/pypi/v/vcli.svg
+    :target: https://pypi.python.org/pypi/vcli/
+    :alt: Latest Version
 
 .. _pgcli: http://pgcli.com
 .. _Vertica: http://www.vertica.com/
