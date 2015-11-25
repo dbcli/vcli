@@ -6,6 +6,8 @@ vcli: A REPL for Vertica
 A Vertica_ client that does auto-completion and syntax highlighting, based on
 pgcli_.
 
+.. image:: screenshots/vcli.gif
+
 
 Installation
 ------------
