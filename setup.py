@@ -25,7 +25,7 @@ setup(
     install_requires=[
         'click >= 4.1',
         'configobj >= 5.0.6',
-        'prompt_toolkit==0.46',
+        'prompt_toolkit==0.54',
         'Pygments >= 2.0',  # Pygments has to be Capitalcased. WTF?
         'sqlparse == 0.1.16',
         'vertica-python==0.5.2'
