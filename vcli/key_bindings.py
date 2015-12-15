@@ -14,7 +14,9 @@ def vcli_bindings(get_vi_mode_enabled, set_vi_mode_enabled):
     assert callable(set_vi_mode_enabled)
 
     key_binding_manager = KeyBindingManager(
+        enable_abort_and_exit_bindings=True,
         enable_open_in_editor=True,
+        enable_search=True,
         enable_system_bindings=True,
         enable_vi_mode=Condition(lambda cli: get_vi_mode_enabled()))
 

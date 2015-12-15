@@ -18,13 +18,14 @@ from time import time
 from urlparse import urlparse
 
 from prompt_toolkit import CommandLineInterface, Application, AbortAction
+from prompt_toolkit.buffer import AcceptAction
 from prompt_toolkit.document import Document
 from prompt_toolkit.enums import DEFAULT_BUFFER
 from prompt_toolkit.filters import Always, HasFocus, IsDone
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.processors import (
     ConditionalProcessor, HighlightMatchingBracketProcessor)
-from prompt_toolkit.shortcuts import create_default_layout, create_eventloop
+from prompt_toolkit.shortcuts import create_prompt_layout, create_eventloop
 from pygments.lexers.sql import PostgresLexer
 from pygments.token import Token
 from vertica_python import errors
@@ -209,7 +210,7 @@ class VCli(object):
                 processor=HighlightMatchingBracketProcessor(chars='[](){}'),
                 filter=HasFocus(DEFAULT_BUFFER) & ~IsDone())
         ]
-        layout = create_default_layout(
+        layout = create_prompt_layout(
             lexer=PostgresLexer,
             reserve_space_for_menu=True,
             get_prompt_tokens=prompt_tokens,
@@ -221,7 +222,8 @@ class VCli(object):
         with self._completer_lock:
             buf = VBuffer(always_multiline=self.multi_line, completer=self.completer,
                           history=FileHistory(os.path.expanduser(history_file)),
-                          complete_while_typing=Always())
+                          complete_while_typing=Always(),
+                          accept_action=AcceptAction.RETURN_DOCUMENT)
 
             application = Application(style=style_factory(self.syntax_style, self.cli_style),
                                       layout=layout, buffer=buf,
