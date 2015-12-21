@@ -267,17 +267,14 @@ class VCli(object):
                     start = time()
                     # Run the query.
                     res = vexecute.run(document.text, self.vspecial)
-                    duration = time() - start
 
                     file_output = None
                     stdout_output = []
 
-                    total = 0
                     for title, cur, headers, status, force_stdout in res:
                         logger.debug("headers: %r", headers)
                         logger.debug("rows: %r", cur)
                         logger.debug("status: %r", status)
-                        start = time()
                         threshold = 1000
                         if (is_select(status) and
                                 cur and cur.rowcount > threshold):
@@ -311,8 +308,7 @@ class VCli(object):
                                     write_output(output, '(%d rows)' % cur.rowcount)
                             if document.text.startswith('\\') and cur.rowcount == 0:
                                 stdout_output = ['No matching relations found.']
-                        end = time()
-                        total += end - start
+
                         mutating = mutating or is_mutating(status)
 
                 except KeyboardInterrupt:
@@ -356,7 +352,7 @@ class VCli(object):
                         except KeyboardInterrupt:
                             pass
                     if self.vspecial.timing_enabled:
-                        print('Time: command: %0.03fs, total: %0.03fs' % (duration, total))
+                        print('Time: %0.03fs' % (time() - start))
 
                     # Refresh the table names and column names if necessary.
                     if need_completion_refresh(document.text):
