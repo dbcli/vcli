@@ -28,7 +28,8 @@ setup(
         'prompt_toolkit==0.54',
         'Pygments >= 2.0',  # Pygments has to be Capitalcased. WTF?
         'sqlparse == 0.1.16',
-        'vertica-python==0.5.2'
+        'vertica-python==0.5.2',
+        'setproctitle >= 1.1.9'
     ],
     entry_points='''
         [console_scripts]
