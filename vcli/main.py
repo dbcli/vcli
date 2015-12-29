@@ -4,11 +4,16 @@ from __future__ import print_function
 import getpass
 import logging
 import os
+import re
 import sys
 import threading
 import traceback
 
 import click
+try:
+    import setproctitle
+except ImportError:
+    setproctitle = None
 import sqlparse
 
 import vcli.packages.vspecial as special
@@ -455,7 +460,22 @@ def cli(database, host, port, user, prompt_passwd, password, version, vclirc):
                       '\tuser: %r'
                       '\thost: %r'
                       '\tport: %r', database, user, host, port)
+    if setproctitle:
+        obfuscate_process_password()
+
     vcli.run_cli()
+
+
+def obfuscate_process_password():
+    process_title = setproctitle.getproctitle()
+    if '://' in process_title:
+        process_title = re.sub(r":(.*):(.*)@", r":\1:xxxx@", process_title)
+    elif "=" in process_title:
+        process_title = re.sub(r"password=(.+?)(\s|$)", r"password=xxxx\2", process_title)
+    elif "-w" in process_title:
+        process_title = re.sub(r"\-w\s+([^\s]+)(\s|$)", r"-w xxxx\2", process_title)
+
+    setproctitle.setproctitle(process_title)
 
 
 def format_output(title, cur, headers, status, table_format, expanded=False,
