@@ -217,7 +217,7 @@ class VCli(object):
         ]
         layout = create_prompt_layout(
             lexer=PostgresLexer,
-            reserve_space_for_menu=True,
+            reserve_space_for_menu=8,
             get_prompt_tokens=prompt_tokens,
             get_bottom_toolbar_tokens=get_toolbar_tokens,
             display_completions_in_columns=self.wider_completion_menu,
@@ -234,6 +234,7 @@ class VCli(object):
                                       layout=layout, buffer=buf,
                                       key_bindings_registry=key_binding_manager.registry,
                                       on_exit=AbortAction.RAISE_EXCEPTION,
+                                      on_abort=AbortAction.RETRY,
                                       ignore_case=True)
             self.cli = CommandLineInterface(application=application,
                                             eventloop=create_eventloop())
