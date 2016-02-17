@@ -324,6 +324,11 @@ def step_see_data_deleted(context):
     _expect(context, r'0\s*\|', timeout=1)
 
 
+@then('we see 0 rows')
+def step_see_0_rows(context):
+    _expect(context, '(0 rows)', timeout=1)
+
+
 @then('we see result in file')
 def step_see_result_in_file(context):
     assert os.path.exists(context.temp_filename)

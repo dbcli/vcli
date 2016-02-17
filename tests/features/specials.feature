@@ -1,6 +1,5 @@
 Feature: Special commands
 
-  @wip
   Scenario: run refresh command
      Given we have vcli installed
       when we run vcli without arguments
