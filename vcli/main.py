@@ -46,6 +46,7 @@ from .packages.vspecial.main import (VSpecial, NO_QUERY)
 from .vbuffer import VBuffer
 from .completion_refresher import CompletionRefresher
 from .vcompleter import VCompleter
+from .verror import format_error
 from .vexecute import VExecute
 from .vstyle import style_factory
 from .vtoolbar import create_toolbar_tokens_func
@@ -343,7 +344,7 @@ class VCli(object):
                 except Exception as e:
                     logger.error("sql: %r, error: %r", document.text, e)
                     logger.error("traceback: %r", traceback.format_exc())
-                    click.secho(str(e), err=True, fg='red')
+                    click.secho(format_error(e), err=True, fg='red')
                 else:
                     successful = True
                     if stdout_output:
