@@ -163,7 +163,11 @@ class VExecute(object):
         _logger.debug('Regular sql statement. sql: %r', split_sql)
         cur = self.conn.cursor()
 
-        tree = sqlparse.parse(split_sql)[0]
+        try:
+            tree = sqlparse.parse(split_sql)[0]
+        except IndexError:
+            return (None, None, None, None, True)
+
         if _is_copy_from_local(tree):
             _execute_copy_from_local_sql(tree, cur)
         else:
