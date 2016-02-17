@@ -379,6 +379,28 @@ def step_see_refresh_started(context):
     _expect_exact(context, 'refresh started in the background', timeout=2)
 
 
+@when('we select from non-existing table')
+def step_select_from_non_existing_table(context):
+    context.cli.sendline('select count(1) from no_such_table;')
+
+
+@then('we see table not exists')
+def step_see_table_non_exists(context):
+    _expect_exact(context, '"no_such_table" does not exist')
+
+
+@when('we execute a query having syntax error')
+def step_execute_query_having_syntax_error(context):
+    context.cli.sendline('select   1    wheree 2=3;')
+
+
+@then('we see syntax error message')
+def step_see_syntax_error_message(context):
+    _expect_exact(context, 'Syntax error at or near "2"')
+    _expect_exact(context, 'select   1    wheree 2=3')
+    _expect_exact(context, '                     ^')
+
+
 def _strip_color(s):
     return re.sub(r'\x1b\[([0-9A-Za-z;?])+[m|K]?', '', s)
 
