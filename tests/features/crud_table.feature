@@ -57,3 +57,15 @@ Feature: manipulate tables:
       and we wait for time prompt
       and we wait for prompt
       then wee see unicode result in file
+
+  Scenario: select 0 rows
+     Given we have vcli installed
+      when we run vcli without arguments
+      and we wait for prompt
+      and we create schema
+      then we see schema created
+      when we create table
+      then we see table created
+
+      when we select from table
+      then we see 0 rows

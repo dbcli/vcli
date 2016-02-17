@@ -311,7 +311,8 @@ class VCli(object):
                                 if cur.rowcount == 1:
                                     write_output(output, '(1 row)')
                                 elif headers:
-                                    write_output(output, '(%d rows)' % cur.rowcount)
+                                    rowcount = max(cur.rowcount, 0)
+                                    write_output(output, '(%d rows)' % rowcount)
                             if document.text.startswith('\\') and cur.rowcount == 0:
                                 stdout_output = ['No matching relations found.']
 
