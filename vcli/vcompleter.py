@@ -44,8 +44,9 @@ class VCompleter(Completer):
     ]
 
     functions = [
-        'AVG', 'COUNT', 'FIRST', 'FORMAT', 'LAST', 'LCASE', 'LEN',
-        'MAX', 'MIN', 'MID', 'NOW', 'ROUND', 'SUM', 'TOP', 'UCASE'
+        'AVG', 'COUNT', 'DISTINCT', 'EXPORT_OBJECTS', 'FIRST', 'FORMAT',
+        'LAST', 'LCASE', 'LEN', 'MAX', 'MIN', 'MID', 'NOW', 'ROUND', 'SUM',
+        'TOP', 'UCASE'
     ]
 
     datatypes = [
