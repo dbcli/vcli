@@ -86,6 +86,14 @@ class VExecute(object):
         conn = vertica.connect(database=db, user=user, password=password,
                                host=host, port=int(port))
 
+        # Print notice message for PROFILE (#42)
+        def print_notice(message):
+            print('%(Severity)s: %(Message)s' % message.values)
+            hint = message.values.get('Hint')
+            if hint:
+                print('HINT: ' + hint)
+        conn.notice_handler = print_notice
+
         # HACK: Modify vertica_python's connection socket to do keep alive
         # TODO: Keep alive for Windows and other platforms
         # http://stackoverflow.com/questions/12248132/how-to-change-tcp-keepalive-timer-using-python-script
@@ -177,7 +185,7 @@ class VExecute(object):
         statusmessage = None
         first_token = split_sql.split()[0].lower()
         if cur.description and first_token in ('select', 'update', 'delete',
-                                               'insert', 'explain'):
+                                               'insert', 'explain', 'profile'):
             headers = [x[0] for x in cur.description]
             return (title, cur, headers, statusmessage, False)
         else:

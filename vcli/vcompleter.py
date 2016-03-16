@@ -40,7 +40,7 @@ class VCompleter(Completer):
         'TABLE', 'TEMPLATE', 'THEN', 'TO', 'TRIGGER', 'TRUNCATE', 'UID',
         'UNION', 'UNIQUE', 'UPDATE', 'USE', 'USER', 'USING', 'VALIDATE',
         'VALUES', 'VARCHAR', 'VARCHAR2', 'VIEW', 'WHEN', 'WHENEVER', 'WHERE',
-        'WITH'
+        'WITH', 'EXPLAIN', 'PROFILE'
     ]
 
     functions = [
