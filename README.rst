@@ -17,7 +17,7 @@ Just install it like a regular Python package::
     $ pip install vcli
 
 You'll probably see some permission errors if you're installing it on the
-system-wide Python. If that's what you want to do, you need to `sudo`::
+system-wide Python. If that's what you want to do, you need to ``sudo``::
 
     $ sudo pip install vcli
 
