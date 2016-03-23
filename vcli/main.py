@@ -327,20 +327,14 @@ class VCli(object):
                 except NotImplementedError:
                     click.secho('Not Yet Implemented.', fg="yellow")
                 except errors.ConnectionError as e:
-                    reconnect = True
-                    if ('Connection is closed' in utf8tounicode(e.args[0])):
-                        reconnect = click.prompt('Connection reset. Reconnect (Y/n)',
-                                show_default=False, type=bool, default=True)
-                        if reconnect:
-                            try:
-                                vexecute.connect()
-                                click.secho('Reconnected!\nTry the command again.', fg='green')
-                            except errors.DatabaseError as e:
-                                click.secho(str(e), err=True, fg='red')
-                    else:
-                        logger.error("sql: %r, error: %r", document.text, e)
-                        logger.error("traceback: %r", traceback.format_exc())
-                        click.secho(str(e), err=True, fg='red')
+                    reconnect = click.prompt('Connection reset. Reconnect (Y/n)',
+                            show_default=False, type=bool, default=True)
+                    if reconnect:
+                        try:
+                            vexecute.connect()
+                            click.secho('Reconnected!\nTry the command again.', fg='green')
+                        except errors.DatabaseError as e:
+                            click.secho(str(e), err=True, fg='red')
                 except Exception as e:
                     logger.error("sql: %r, error: %r", document.text, e)
                     logger.error("traceback: %r", traceback.format_exc())
