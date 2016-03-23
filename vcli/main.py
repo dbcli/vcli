@@ -20,7 +20,16 @@ import vcli.packages.vspecial as special
 
 from collections import namedtuple
 from time import time
-from urlparse import urlparse
+
+try:
+    from urlparse import urlparse
+except ImportError:
+    from urllib.parse import urlparse
+
+try:
+    basestring
+except NameError:
+    basestring = str
 
 from prompt_toolkit import CommandLineInterface, Application, AbortAction
 from prompt_toolkit.buffer import AcceptAction
