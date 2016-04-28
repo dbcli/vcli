@@ -198,7 +198,7 @@ class VExecute(object):
             _logger.debug('Search path query. sql: %r', self.search_path_query)
             cur.execute(self.search_path_query)
             names = cur.fetchone()[0]
-            return names.split(',')
+            return names.split(b',')
 
     def schemata(self):
         """Returns a list of schema names in the database"""
